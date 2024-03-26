@@ -3,6 +3,7 @@ import TabsPage from '../pages/tabs';
 import HomeLayout from '../layouts/HomeLayout';
 import BasicLayoutWithCache from '../layouts/BasicLayout';
 import Counter from '../pages/counter';
+import ExcludeCounter from '../pages/exclude-counter';
 
 const router = createHashRouter([
     {
@@ -23,6 +24,10 @@ const router = createHashRouter([
                         path: 'counter',
                         element: <Counter/>,
                     },
+                    {
+                        path: 'exclude-counter',
+                        element: <ExcludeCounter />,
+                    }
                 ],
             },
             {

@@ -27,13 +27,22 @@ function BasicLayoutWithCache() {
             }} >
                 <button className={'button'}>Counter2</button>
             </Link>
+            {/*exclude-counter*/}
+            <Link to={'/exclude-counter'} style={{
+                marginRight: 5,
+            }} >
+                <button className={'button'}>Exclude Counter</button>
+            </Link>
+
             <Link to={'/tabs'} style={{
                 marginRight: 5,
             }} >
                 <button className={'button'}>Tabs</button>
             </Link>
             <div>
-                <KeepAlive activeName={cacheKey} max={10} strategy={'LRU'}>
+                <KeepAlive activeName={cacheKey}
+                           exclude={[/\/exclude-counter/]}
+                           max={10} strategy={'LRU'}>
                     {outlet}
                 </KeepAlive>
             </div>
