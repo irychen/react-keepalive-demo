@@ -11,7 +11,7 @@ function BasicLayoutWithCache() {
      * to distinguish different pages to cache
      */
     const cacheKey = useMemo(() => {
-        return location.pathname + location.search + location.hash;
+        return location.pathname + location.search;
     }, [location]);
 
     return (
