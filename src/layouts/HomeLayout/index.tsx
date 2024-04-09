@@ -1,8 +1,6 @@
 import { ReactNode } from 'react';
 
-function HomeLayout({ children }: {
-    children: ReactNode
-}) {
+function HomeLayout({ children }: { children: ReactNode }) {
     return (
         <div>
             <Header />
@@ -16,18 +14,15 @@ function Header() {
     return (
         <div>
             <h4>Header</h4>
-            <p>
-                Nested Layout
-            </p>
+            <p>Nested Layout</p>
         </div>
     );
 }
 
-
 function Footer() {
     return (
         <div>
-        <h4>Footer</h4>
+            <h4>Footer</h4>
         </div>
     );
 }

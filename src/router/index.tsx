@@ -12,27 +12,29 @@ const router = createHashRouter([
         children: [
             {
                 path: '/',
-                element: <HomeLayout><Outlet /></HomeLayout>,
+                element: (
+                    <HomeLayout>
+                        <Outlet />
+                    </HomeLayout>
+                ),
                 children: [
                     {
                         path: '',
-                        element: <div>
-                            Click the red button to navigate to the counter or tabs test page
-                        </div>
+                        element: <div>Click the red button to navigate to the counter or tabs test page</div>,
                     },
                     {
                         path: 'counter',
-                        element: <Counter/>,
+                        element: <Counter />,
                     },
                     {
                         path: 'exclude-counter',
                         element: <ExcludeCounter />,
-                    }
+                    },
                 ],
             },
             {
                 path: 'counter2',
-                element: <Counter/>,
+                element: <Counter />,
             },
         ],
     },
@@ -41,6 +43,5 @@ const router = createHashRouter([
         element: <TabsPage />,
     },
 ]);
-
 
 export default router;

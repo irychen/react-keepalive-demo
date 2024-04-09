@@ -1,17 +1,16 @@
 import {
     ComponentType,
     Fragment,
+    MutableRefObject,
     ReactNode,
-    RefObject, useCallback,
+    RefObject,
+    useCallback,
     useImperativeHandle,
     useLayoutEffect,
     useRef,
     useState,
 } from 'react';
 import CacheComponent from '../CacheComponent';
-
-
-
 
 interface Props {
     children: ReactNode;
@@ -41,7 +40,7 @@ interface Props {
      * aliveRef is a ref to get caches, remove cache by name, clean all cache, clean other cache except current
      *
      */
-    aliveRef?: RefObject<KeepAliveRef>;
+    aliveRef?: RefObject<KeepAliveRef | undefined> | MutableRefObject<KeepAliveRef | undefined>;
 
     exclude?: Array<string | RegExp> | string | RegExp;
 
@@ -51,14 +50,14 @@ interface Props {
      * suspenseElement: Suspense Wrapper Component
      */
     suspenseElement?: ComponentType<{
-        children: ReactNode,
+        children: ReactNode;
     }>;
 
     /**
      *  errorElement: for every cacheNode's ErrorBoundary
      */
     errorElement?: ComponentType<{
-        children: ReactNode,
+        children: ReactNode;
     }>;
 }
 
@@ -103,18 +102,30 @@ const RemoveStrategies: Record<string, (nodes: CacheNode[]) => CacheNode[]> = {
 };
 
 type KeepAliveRef = {
-    getCaches: () => Array<CacheNode>
+    getCaches: () => Array<CacheNode>;
 
-    removeCache: (name: string) => void
+    removeCache: (name: string) => void;
 
-    cleanAllCache: () => void
+    cleanAllCache: () => void;
 
-    cleanOtherCache: () => void
+    cleanOtherCache: () => void;
+};
+
+export function useKeepaliveRef() {
+    return useRef<KeepAliveRef>();
 }
 
-
 function KeepAlive(props: Props) {
-    const { aliveRef, cache = true, strategy = 'Pre', activeName,children, max = 10, errorElement } = props;
+    const {
+        aliveRef,
+        cache = true,
+        strategy = 'Pre',
+        activeName,
+        children,
+        max = 10,
+        errorElement,
+        suspenseElement: SuspenseElement = Fragment,
+    } = props;
     const containerDivRef = useRef<HTMLDivElement>(null);
     const [cacheNodes, setCacheNodes] = useState<Array<CacheNode>>([]);
 
@@ -125,8 +136,8 @@ function KeepAlive(props: Props) {
             prevCacheNodes = prevCacheNodes.filter(item => item.cache);
 
             // remove cacheNodes with exclude
-            if (isArr(props.exclude)) {
-                const exclude = props.exclude as Array<string | RegExp>;
+            if (!isNil(props.exclude)) {
+                const exclude = isArr(props.exclude) ? props.exclude : [props.exclude];
                 prevCacheNodes = prevCacheNodes.filter(item => {
                     return !exclude.some(exclude => {
                         if (isRegExp(exclude)) {
@@ -136,22 +147,11 @@ function KeepAlive(props: Props) {
                         }
                     });
                 });
-            } else if (props.exclude) {
-                const exclude = props.exclude as string | RegExp;
-                if (isRegExp(exclude)) {
-                    prevCacheNodes = prevCacheNodes.filter(item => {
-                        return !exclude.test(item.name);
-                    });
-                } else {
-                    prevCacheNodes = prevCacheNodes.filter(item => {
-                        return item.name !== exclude;
-                    });
-                }
             }
 
             // only keep cacheNodes with include
-            if (isArr(props.include)) {
-                const include = props.include as Array<string | RegExp>;
+            if (!isNil(props.include)) {
+                const include = isArr(props.include) ? props.include : [props.include];
                 prevCacheNodes = prevCacheNodes.filter(item => {
                     return include.some(include => {
                         if (isRegExp(include)) {
@@ -161,19 +161,7 @@ function KeepAlive(props: Props) {
                         }
                     });
                 });
-            } else if (props.include) {
-                const include = props.include as string | RegExp;
-                if (isRegExp(include)) {
-                    prevCacheNodes = prevCacheNodes.filter(item => {
-                        return include.test(item.name);
-                    });
-                } else {
-                    prevCacheNodes = prevCacheNodes.filter(item => {
-                        return item.name === include;
-                    });
-                }
             }
-
 
             const lastActiveTime = Date.now();
 
@@ -221,18 +209,20 @@ function KeepAlive(props: Props) {
         [cacheNodes, setCacheNodes, activeName],
     );
 
-
-    const destroy = useCallback((name: string) => {
+    const destroy = useCallback(
+        (name: string) => {
             setCacheNodes(cacheNodes => {
                 return cacheNodes.filter(item => item.name !== name);
             });
-    }, [setCacheNodes]);
+        },
+        [setCacheNodes],
+    );
 
     return (
         <Fragment>
             <div ref={containerDivRef} className={'keep-alive-render'}></div>
-            {isNil(props.suspenseElement) ? (
-                cacheNodes.map(item => {
+            <SuspenseElement>
+                {cacheNodes.map(item => {
                     const { name, ele } = item;
                     return (
                         <CacheComponent
@@ -246,29 +236,10 @@ function KeepAlive(props: Props) {
                             {ele}
                         </CacheComponent>
                     );
-                })
-            ) : (
-                <props.suspenseElement>
-                    {cacheNodes.map(item => {
-                        const { name, ele } = item;
-                        return (
-                            <CacheComponent
-                                containerDivRef={containerDivRef}
-                                key={name}
-                                errorElement={errorElement}
-                                active={activeName === name}
-                                name={name}
-                                destroy={destroy}
-                            >
-                                {ele}
-                            </CacheComponent>
-                        );
-                    })}
-                </props.suspenseElement>
-            )}
+                })}
+            </SuspenseElement>
         </Fragment>
     );
 }
-
 
 export default KeepAlive;
