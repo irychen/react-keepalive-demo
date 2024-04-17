@@ -86,7 +86,7 @@ function TabsPage() {
                         }}
                         className={'button'}
                         onClick={() => {
-                            aliveRef.current?.refresh('Tab2');
+                            aliveRef.current?.refresh();
                         }}
                     >
                         refresh current cache
@@ -156,9 +156,10 @@ function Tab2(props: any) {
     useEffectOnActive(
         active => {
             console.log('Tab2 active ---useOnActive---', active);
+            console.log('inputText', inputText);
         },
         true,
-        [],
+        [inputText],
     );
     return (
         <div>
