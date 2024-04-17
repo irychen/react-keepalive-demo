@@ -157,10 +157,21 @@ function Tab2(props: any) {
         active => {
             console.log('Tab2 active ---useOnActive---', active);
             console.log('inputText', inputText);
+            return () => {
+                console.log('Tab2 cleanup',inputText, active);
+            }
         },
         true,
-        [inputText],
+        [inputText]
     );
+
+    useEffect(() => {
+        console.log('inputText raw', inputText);
+        return () => {
+            console.log('Tab2 cleanup raw', inputText);
+        }
+    }, [inputText]);
+
     return (
         <div>
             <h4 style={{ textAlign: 'center' }}>Tab2</h4>

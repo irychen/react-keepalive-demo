@@ -1,4 +1,5 @@
 import { createContext, DependencyList, memo, ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { isFn } from '../../utils';
 
 /**
  * The context of the cache component.
@@ -56,7 +57,7 @@ export const useEffectOnActive = (cb: (active: boolean) => void | (() => void), 
         }
         const destroyCb = cb(active);
         return () => {
-            if (destroyCb) {
+            if (isFn(destroyCb)) {
                 destroyCb();
             }
         };
@@ -81,7 +82,7 @@ export const useLayoutEffectOnActive = (cb: (active: boolean) => void | (() => v
         }
         const destroyCb = cb(active);
         return () => {
-            if (destroyCb) {
+            if (isFn(destroyCb)) {
                 destroyCb();
             }
         };
