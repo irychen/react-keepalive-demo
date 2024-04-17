@@ -1,6 +1,7 @@
 import {
     ComponentType,
     Fragment,
+    memo,
     MutableRefObject,
     ReactNode,
     RefObject,
@@ -11,6 +12,11 @@ import {
     useState,
 } from 'react';
 import CacheComponent from '../CacheComponent';
+import { v4 } from 'uuid';
+
+const MemoCacheComponent = memo(CacheComponent, (prevProps, nextProps) => {
+    return prevProps.active === nextProps.active;
+});
 
 interface Props {
     children: ReactNode;
@@ -78,6 +84,7 @@ interface CacheNode {
     ele?: ReactNode;
     cache: boolean;
     lastActiveTime: number;
+    uid: string;
 }
 
 /**
@@ -109,6 +116,12 @@ type KeepAliveRef = {
     cleanAllCache: () => void;
 
     cleanOtherCache: () => void;
+
+    /**
+     * refresh cacheNode by name, if name is not provided, refresh current displayed cacheNode
+     * @param name
+     */
+    refresh: (name?: string) => void;
 };
 
 export function useKeepaliveRef() {
@@ -119,7 +132,7 @@ function KeepAlive(props: Props) {
     const {
         aliveRef,
         cache = true,
-        strategy = 'Pre',
+        strategy = 'PRE',
         activeName,
         children,
         max = 10,
@@ -170,7 +183,12 @@ function KeepAlive(props: Props) {
             if (cacheNode) {
                 return prevCacheNodes.map(item => {
                     if (item.name === activeName) {
-                        return { name: activeName, cache, lastActiveTime, ele: children };
+                        return {
+                            ...item,
+                            cache,
+                            lastActiveTime,
+                            ele: children,
+                        };
                     }
                     return item;
                 });
@@ -183,10 +201,47 @@ function KeepAlive(props: Props) {
                         throw new Error(`strategy ${strategy} is not supported`);
                     }
                 }
-                return [...prevCacheNodes, { name: activeName, cache, lastActiveTime, ele: children }];
+                return [
+                    ...prevCacheNodes,
+                    {
+                        name: activeName,
+                        uid: v4(),
+                        cache,
+                        lastActiveTime,
+                        ele: children,
+                    },
+                ];
             }
         });
     }, [children, activeName, setCacheNodes, max, cache, strategy, props.exclude, props.include]);
+
+    const refresh = useCallback(
+        (name?: string) => {
+            name = name || activeName;
+            setCacheNodes(cacheNodes => {
+                return cacheNodes.map(item => {
+                    if (item.name === name) {
+                        return {
+                            ...item,
+                            ele: children,
+                            uid: v4(),
+                        };
+                    }
+                    return item;
+                });
+            });
+        },
+        [setCacheNodes, activeName],
+    );
+
+    const destroy = useCallback(
+        (name: string) => {
+            setCacheNodes(cacheNodes => {
+                return cacheNodes.filter(item => item.name !== name);
+            });
+        },
+        [setCacheNodes],
+    );
 
     useImperativeHandle(
         aliveRef,
@@ -205,17 +260,9 @@ function KeepAlive(props: Props) {
                     return [...cacheNodes.filter(item => item.name === activeName)];
                 });
             },
+            refresh: refresh,
         }),
-        [cacheNodes, setCacheNodes, activeName],
-    );
-
-    const destroy = useCallback(
-        (name: string) => {
-            setCacheNodes(cacheNodes => {
-                return cacheNodes.filter(item => item.name !== name);
-            });
-        },
-        [setCacheNodes],
+        [cacheNodes, setCacheNodes, activeName, children, refresh],
     );
 
     return (
@@ -223,18 +270,18 @@ function KeepAlive(props: Props) {
             <div ref={containerDivRef} className={'keep-alive-render'}></div>
             <SuspenseElement>
                 {cacheNodes.map(item => {
-                    const { name, ele } = item;
+                    const { name, ele, uid } = item;
                     return (
-                        <CacheComponent
+                        <MemoCacheComponent
                             containerDivRef={containerDivRef}
-                            key={name}
+                            key={uid}
                             errorElement={errorElement}
                             active={activeName === name}
                             name={name}
                             destroy={destroy}
                         >
                             {ele}
-                        </CacheComponent>
+                        </MemoCacheComponent>
                     );
                 })}
             </SuspenseElement>

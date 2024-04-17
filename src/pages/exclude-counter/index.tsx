@@ -1,17 +1,21 @@
 import { useState } from 'react';
-import { useKeepAliveContext, useOnActive } from '../../components/KeepaAliveProvider';
+import { useKeepAliveContext, useEffectOnActive } from '../../components/KeepaAliveProvider';
 
 function ExcludeCounter() {
     const [count, setCount] = useState(0);
 
     const { destroy } = useKeepAliveContext();
 
-    useOnActive(active => {
-        console.log(`Counter active: ${active} Count: ${count}`);
-        return () => {
-            console.log(`Counter cleanup: ${active} Count: ${count}`);
-        };
-    });
+    useEffectOnActive(
+        active => {
+            console.log(`Counter active: ${active} Count: ${count}`);
+            return () => {
+                console.log(`Counter cleanup: ${active} Count: ${count}`);
+            };
+        },
+        true,
+        [count],
+    );
 
     return (
         <div>

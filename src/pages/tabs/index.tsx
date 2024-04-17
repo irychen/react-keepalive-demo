@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useKeepAliveContext, useOnActive } from '../../components/KeepaAliveProvider';
+import { useKeepAliveContext, useEffectOnActive } from '../../components/KeepaAliveProvider';
 import KeepAlive, { useKeepaliveRef } from '../../components/KeepAlive';
 
 const tabs = [
@@ -79,6 +79,18 @@ function TabsPage() {
                     >
                         print cacheNodes
                     </button>
+
+                    <button
+                        style={{
+                            margin: '0 10px',
+                        }}
+                        className={'button'}
+                        onClick={() => {
+                            aliveRef.current?.refresh('Tab2');
+                        }}
+                    >
+                        refresh current cache
+                    </button>
                 </div>
                 <div
                     style={{
@@ -141,9 +153,13 @@ function Tab2(props: any) {
     const [count, setCount] = useState(0);
     const [inputText, setInputText] = useState('');
 
-    useOnActive(active => {
-        console.log('Tab2 active ---useOnActive---', active);
-    }, true);
+    useEffectOnActive(
+        active => {
+            console.log('Tab2 active ---useOnActive---', active);
+        },
+        true,
+        [],
+    );
     return (
         <div>
             <h4 style={{ textAlign: 'center' }}>Tab2</h4>
