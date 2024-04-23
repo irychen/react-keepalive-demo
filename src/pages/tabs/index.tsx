@@ -147,6 +147,9 @@ function Tab1(props: any) {
             <div>
                 <video src="https://www.w3schools.com/tags/mov_bbb.mp4" style={{ width: '100%' }} controls={true} />
             </div>
+            <div>
+                <iframe width={1000} height={500} src="https://www.youdao.com"></iframe>
+            </div>
         </div>
     );
 }
