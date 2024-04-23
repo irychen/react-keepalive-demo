@@ -144,6 +144,9 @@ function Tab1(props: any) {
                 </button>
                 <textarea value={inputText} onChange={e => setInputText(e.target.value)} placeholder="input something" />
             </div>
+            <div>
+                <video src="https://www.w3schools.com/tags/mov_bbb.mp4" style={{ width: '100%' }} controls={true} />
+            </div>
         </div>
     );
 }
@@ -158,18 +161,18 @@ function Tab2(props: any) {
             console.log('Tab2 active ---useOnActive---', active);
             console.log('inputText', inputText);
             return () => {
-                console.log('Tab2 cleanup',inputText, active);
-            }
+                console.log('Tab2 cleanup', inputText, active);
+            };
         },
         true,
-        [inputText]
+        [inputText],
     );
 
     useEffect(() => {
         console.log('inputText raw', inputText);
         return () => {
             console.log('Tab2 cleanup raw', inputText);
-        }
+        };
     }, [inputText]);
 
     return (
