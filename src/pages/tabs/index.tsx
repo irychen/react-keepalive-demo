@@ -1,22 +1,25 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useKeepAliveContext, useEffectOnActive } from '../../components/KeepaAliveProvider';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import KeepAlive, { useKeepaliveRef } from '../../components/KeepAlive';
+
+/**
+ * antd 组件的懒加载 select datepicker 之类的 会有问题
+ */
 
 const tabs = [
     {
         name: 'Tab1',
         cache: true,
-        component: Tab1,
+        component: lazy(() => import('./Tab1')),
     },
     {
         name: 'Tab2',
         cache: true,
-        component: Tab2,
+        component: lazy(() => import('./Tab2')),
     },
     {
         name: 'Tab3',
         cache: false,
-        component: Tab3,
+        component: lazy(() => import('./Tab3')),
     },
 ];
 
@@ -79,18 +82,6 @@ function TabsPage() {
                     >
                         print cacheNodes
                     </button>
-
-                    <button
-                        style={{
-                            margin: '0 10px',
-                        }}
-                        className={'button'}
-                        onClick={() => {
-                            aliveRef.current?.refresh();
-                        }}
-                    >
-                        refresh current cache
-                    </button>
                 </div>
                 <div
                     style={{
@@ -98,9 +89,14 @@ function TabsPage() {
                         display: 'flex',
                     }}
                 >
-                    <KeepAlive aliveRef={aliveRef} max={20} strategy={'PRE'} activeName={activeTab} cache={page?.cache}>
-                        {page && <page.component name={page.name} />}
-                    </KeepAlive>
+                    <Suspense
+                     fallback={<div>Loading...</div>}
+                    >
+                        <KeepAlive
+                            aliveRef={aliveRef} max={20} strategy={'PRE'} activeName={activeTab} cache={page?.cache}>
+                            {page && <page.component name={page.name} />}
+                        </KeepAlive>
+                    </Suspense>
                 </div>
             </div>
         </div>
@@ -109,112 +105,7 @@ function TabsPage() {
 
 export default TabsPage;
 
-function Tab1(props: any) {
-    const [count, setCount] = useState(0);
-    const [inputText, setInputText] = useState('');
 
-    console.log('Tab1 rendered', props.name);
 
-    const { active, destroy } = useKeepAliveContext();
 
-    useEffect(() => {
-        console.log('Tab1 active', active);
-    }, [active]);
 
-    useEffect(() => {
-        console.log('Tab1 mounted');
-    }, []);
-
-    return (
-        <div>
-            <h4 style={{ textAlign: 'center' }}>Tab1</h4>
-            <div className={'flex flex-col justify-center'}>
-                <button className={'button'} onClick={() => setCount(count + 1)}>
-                    count: {count}
-                </button>
-
-                <button
-                    className={'button'}
-                    style={{
-                        marginTop: '10px',
-                    }}
-                    onClick={() => destroy()}
-                >
-                    destroy
-                </button>
-                <textarea value={inputText} onChange={e => setInputText(e.target.value)} placeholder="input something" />
-            </div>
-            <div>
-                <video src="https://www.w3schools.com/tags/mov_bbb.mp4" style={{ width: '100%' }} controls={true} />
-            </div>
-            <div>
-                <iframe width={1000} height={500} src="https://www.youdao.com"></iframe>
-            </div>
-        </div>
-    );
-}
-
-function Tab2(props: any) {
-    console.log('Tab2 rendered', props.name);
-    const [count, setCount] = useState(0);
-    const [inputText, setInputText] = useState('');
-
-    useEffectOnActive(
-        active => {
-            console.log('Tab2 active ---useOnActive---', active);
-            console.log('inputText', inputText);
-            return () => {
-                console.log('Tab2 cleanup', inputText, active);
-            };
-        },
-        true,
-        [inputText],
-    );
-
-    useEffect(() => {
-        console.log('inputText raw', inputText);
-        return () => {
-            console.log('Tab2 cleanup raw', inputText);
-        };
-    }, [inputText]);
-
-    return (
-        <div>
-            <h4 style={{ textAlign: 'center' }}>Tab2</h4>
-            <div className={'flex flex-col justify-center'}>
-                <button className={'button'} onClick={() => setCount(count + 1)}>
-                    count: {count}
-                </button>
-                <textarea value={inputText} onChange={e => setInputText(e.target.value)} placeholder="input something" />
-            </div>
-        </div>
-    );
-}
-
-function Tab3(props: any) {
-    console.log('Tab3 rendered', props.name);
-
-    const { active } = useKeepAliveContext();
-
-    useEffect(() => {
-        console.log('Tab3 active', active);
-    }, [active]);
-
-    useEffect(() => {
-        console.log('Tab3 mounted');
-    }, []);
-
-    const [count, setCount] = useState(0);
-    const [inputText, setInputText] = useState('');
-    return (
-        <div>
-            <h4 style={{ textAlign: 'center' }}>Tab3 nocache</h4>
-            <div className={'flex flex-col justify-center'}>
-                <button className={'button'} onClick={() => setCount(count + 1)}>
-                    count: {count}
-                </button>
-                <textarea value={inputText} onChange={e => setInputText(e.target.value)} placeholder="input something" />
-            </div>
-        </div>
-    );
-}

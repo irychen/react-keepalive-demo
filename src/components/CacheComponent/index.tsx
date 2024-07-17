@@ -1,13 +1,16 @@
-import { ComponentType, Fragment, ReactNode, RefObject, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import {
+    ComponentType, Fragment, memo, ReactNode,
+    RefObject, useCallback, useLayoutEffect, useMemo, useRef,
+} from 'react';
 import { createPortal } from 'react-dom';
-import MemoCacheComponentProvider from '../KeepaAliveProvider';
+import MemoCacheComponentProvider from '../KeepAliveProvider';
 
 interface Props {
     containerDivRef: RefObject<HTMLDivElement>;
     active: boolean;
     name: string;
     errorElement?: ComponentType<{
-        children: ReactNode;
+        children: ReactNode
     }>;
     children: ReactNode;
     destroy: (name: string) => void;
@@ -19,16 +22,16 @@ function CacheComponent(props: Props) {
 
     activatedRef.current = activatedRef.current || active;
 
-    const [cacheDiv] = useState(() => {
+    const cacheDiv = useMemo(() => {
         const cacheDiv = document.createElement('div');
         cacheDiv.setAttribute('data-name', name);
+        cacheDiv.setAttribute('style', 'height: 100%');
         cacheDiv.className = `cache-component`;
         return cacheDiv;
-    });
+    }, []);
 
     useLayoutEffect(() => {
         const containerDiv = containerDivRef.current;
-
         cacheDiv.classList.remove('active', 'inactive');
         if (active) {
             containerDiv?.appendChild(cacheDiv);
@@ -47,17 +50,12 @@ function CacheComponent(props: Props) {
         destroy(name);
     }, [destroy, name]);
 
-    return activatedRef.current
-        ? createPortal(
-              <ErrorBoundary>
-                  <MemoCacheComponentProvider active={active} destroy={cacheDestroy}>
-                      {children}
-                  </MemoCacheComponentProvider>
-              </ErrorBoundary>,
-              cacheDiv,
-              name,
-          )
+    return activatedRef.current ? createPortal(<ErrorBoundary>
+            <MemoCacheComponentProvider active={active} destroy={cacheDestroy}>
+                {children}
+            </MemoCacheComponentProvider>
+        </ErrorBoundary>, cacheDiv, name)
         : null;
 }
 
-export default CacheComponent;
+export default memo(CacheComponent);

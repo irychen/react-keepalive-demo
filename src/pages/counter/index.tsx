@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useKeepAliveContext, useEffectOnActive } from '../../components/KeepaAliveProvider';
+import { useEffectOnActive, useKeepAliveContext } from '../../components/KeepAliveProvider';
+import { DatePicker, Select } from 'antd';
 
 function Counter() {
     const [count, setCount] = useState(0);
@@ -22,7 +23,13 @@ function Counter() {
             <p>Count: {count}</p>
             <button onClick={() => setCount(count + 1)}>Increment</button>
             <input type="text" />
-
+            <div>
+                <DatePicker></DatePicker>
+                <DatePicker.RangePicker></DatePicker.RangePicker>
+                <Select style={{
+                    width: 120,
+                }}></Select>
+            </div>
             <button onClick={() => destroy()}>destroy</button>
         </div>
     );
