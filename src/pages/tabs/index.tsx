@@ -90,7 +90,30 @@ function TabsPage() {
                     }}
                 >
                     <Suspense fallback={<div>Loading...</div>}>
-                        <KeepAlive aliveRef={aliveRef} max={20} strategy={'PRE'} activeName={activeTab} cache={page?.cache}>
+                        <KeepAlive
+                            onBeforeActive={name => {
+                                console.log('set style', name);
+                                // set .ant-select-dropdown .ant-picker-dropdown style to ''
+                                const dropdowns = document.querySelectorAll('.ant-select-dropdown');
+                                dropdowns.forEach(dropdown => {
+                                    if (dropdown) {
+                                        dropdown.setAttribute('style', '');
+                                    }
+                                });
+
+                                const pickerDropdowns = document.querySelectorAll('.ant-picker-dropdown');
+                                pickerDropdowns.forEach(pickerDropdown => {
+                                    if (pickerDropdown) {
+                                        pickerDropdown.setAttribute('style', '');
+                                    }
+                                });
+                            }}
+                            aliveRef={aliveRef}
+                            max={20}
+                            strategy={'PRE'}
+                            activeName={activeTab}
+                            cache={page?.cache}
+                        >
                             {page && <page.component name={page.name} />}
                         </KeepAlive>
                     </Suspense>

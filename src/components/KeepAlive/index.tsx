@@ -66,6 +66,8 @@ interface Props {
     animationWrapper?: ComponentType<{
         children: ReactNode;
     }>;
+
+    onBeforeActive?: (name: string) => void;
 }
 
 interface CacheNode {
@@ -121,6 +123,7 @@ function KeepAlive(props: Props) {
         errorElement,
         suspenseElement: SuspenseElement = Fragment,
         animationWrapper: AnimationWrapper = Fragment,
+        onBeforeActive,
     } = props;
     const containerDivRef = useRef<HTMLDivElement>(null);
     const [cacheNodes, setCacheNodes] = useState<Array<CacheNode>>([]);
@@ -128,22 +131,6 @@ function KeepAlive(props: Props) {
     useLayoutEffect(() => {
         if (isNil(activeName)) return;
         setCacheNodes(prevCacheNodes => {
-            (() => {
-                const dropdowns = document.querySelectorAll('.ant-select-dropdown');
-                dropdowns.forEach(dropdown => {
-                    if (dropdown) {
-                        dropdown.setAttribute('style', '');
-                    }
-                });
-
-                const pickerDropdowns = document.querySelectorAll('.ant-picker-dropdown');
-                pickerDropdowns.forEach(pickerDropdown => {
-                    if (pickerDropdown) {
-                        pickerDropdown.setAttribute('style', '');
-                    }
-                });
-            })();
-
             // remove cacheNodes with cache false node
             prevCacheNodes = prevCacheNodes.filter(item => item.cache);
 
@@ -182,11 +169,13 @@ function KeepAlive(props: Props) {
             if (cacheNode) {
                 return prevCacheNodes.map(item => {
                     if (item.name === activeName) {
+                        onBeforeActive && onBeforeActive(activeName);
                         return { name: activeName, cache, lastActiveTime, ele: children };
                     }
                     return item;
                 });
             } else {
+                onBeforeActive && onBeforeActive(activeName);
                 if (prevCacheNodes.length >= max) {
                     const removeStrategyFunc = RemoveStrategies[strategy];
                     if (removeStrategyFunc) {
