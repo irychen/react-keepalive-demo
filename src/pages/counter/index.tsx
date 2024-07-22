@@ -26,9 +26,11 @@ function Counter() {
             <div>
                 <DatePicker></DatePicker>
                 <DatePicker.RangePicker></DatePicker.RangePicker>
-                <Select style={{
-                    width: 120,
-                }}></Select>
+                <Select
+                    style={{
+                        width: 120,
+                    }}
+                ></Select>
             </div>
             <button onClick={() => destroy()}>destroy</button>
         </div>

@@ -89,11 +89,8 @@ function TabsPage() {
                         display: 'flex',
                     }}
                 >
-                    <Suspense
-                     fallback={<div>Loading...</div>}
-                    >
-                        <KeepAlive
-                            aliveRef={aliveRef} max={20} strategy={'PRE'} activeName={activeTab} cache={page?.cache}>
+                    <Suspense fallback={<div>Loading...</div>}>
+                        <KeepAlive aliveRef={aliveRef} max={20} strategy={'PRE'} activeName={activeTab} cache={page?.cache}>
                             {page && <page.component name={page.name} />}
                         </KeepAlive>
                     </Suspense>
@@ -104,8 +101,3 @@ function TabsPage() {
 }
 
 export default TabsPage;
-
-
-
-
-

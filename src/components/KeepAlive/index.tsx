@@ -9,26 +9,26 @@ import {
     useLayoutEffect,
     useRef,
     useState,
-} from "react"
-import CacheComponent from "../CacheComponent"
-import { isArr, isNil, isRegExp } from "../../utils"
+} from 'react';
+import CacheComponent from '../CacheComponent';
+import { isArr, isNil, isRegExp } from '../../utils';
 
-type Strategy = "PRE" | "LRU"
+type Strategy = 'PRE' | 'LRU';
 
 interface Props {
-    children: ReactNode
+    children: ReactNode;
     /**
      * active name
      */
-    activeName: string
+    activeName: string;
     /**
      * max cache count default 10
      */
-    max?: number
+    max?: number;
     /**
      * cache: boolean default true
      */
-    cache?: boolean
+    cache?: boolean;
     /**
      * maxRemoveStrategy: 'PRE' | 'LRU' default 'LRU'
      *
@@ -36,43 +36,43 @@ interface Props {
      *
      * LRU: remove the least recently used cacheNode
      */
-    strategy?: Strategy
+    strategy?: Strategy;
     /**
      * aliveRef: KeepAliveRef
      *
      * aliveRef is a ref to get caches, remove cache by name, clean all cache, clean other cache except current
      *
      */
-    aliveRef?: RefObject<KeepAliveRef | undefined> | MutableRefObject<KeepAliveRef | undefined>
+    aliveRef?: RefObject<KeepAliveRef | undefined> | MutableRefObject<KeepAliveRef | undefined>;
 
-    exclude?: Array<string | RegExp> | string | RegExp
+    exclude?: Array<string | RegExp> | string | RegExp;
 
-    include?: Array<string | RegExp> | string | RegExp
+    include?: Array<string | RegExp> | string | RegExp;
 
     /**
      * suspenseElement: Suspense Wrapper Component
      */
     suspenseElement?: ComponentType<{
-        children: ReactNode
-    }>
+        children: ReactNode;
+    }>;
 
     /**
      *  errorElement: for every cacheNode's ErrorBoundary
      */
     errorElement?: ComponentType<{
-        children: ReactNode
-    }>
+        children: ReactNode;
+    }>;
 
     animationWrapper?: ComponentType<{
-        children: ReactNode
-    }>
+        children: ReactNode;
+    }>;
 }
 
 interface CacheNode {
-    name: string
-    ele?: ReactNode
-    cache: boolean
-    lastActiveTime: number
+    name: string;
+    ele?: ReactNode;
+    cache: boolean;
+    lastActiveTime: number;
 }
 
 /**
@@ -84,105 +84,121 @@ interface CacheNode {
  */
 const RemoveStrategies: Record<string, (nodes: CacheNode[]) => CacheNode[]> = {
     PRE: (nodes: CacheNode[]) => {
-        nodes.shift()
-        return nodes
+        nodes.shift();
+        return nodes;
     },
     LRU: (nodes: CacheNode[]) => {
         const node = nodes.reduce((prev, cur) => {
-            return prev.lastActiveTime < cur.lastActiveTime ? prev : cur
-        })
-        nodes.splice(nodes.indexOf(node), 1)
-        return nodes
+            return prev.lastActiveTime < cur.lastActiveTime ? prev : cur;
+        });
+        nodes.splice(nodes.indexOf(node), 1);
+        return nodes;
     },
-}
+};
 
 export type KeepAliveRef = {
-    getCaches: () => Array<CacheNode>
+    getCaches: () => Array<CacheNode>;
 
-    removeCache: (name: string) => void
+    removeCache: (name: string) => void;
 
-    cleanAllCache: () => void
+    cleanAllCache: () => void;
 
-    cleanOtherCache: () => void
-}
+    cleanOtherCache: () => void;
+};
 
 export function useKeepaliveRef() {
-    return useRef<KeepAliveRef>()
+    return useRef<KeepAliveRef>();
 }
 
 function KeepAlive(props: Props) {
     const {
         aliveRef,
         cache = true,
-        strategy = "LRU",
+        strategy = 'LRU',
         activeName,
         children,
         max = 10,
         errorElement,
         suspenseElement: SuspenseElement = Fragment,
         animationWrapper: AnimationWrapper = Fragment,
-    } = props
-    const containerDivRef = useRef<HTMLDivElement>(null)
-    const [cacheNodes, setCacheNodes] = useState<Array<CacheNode>>([])
+    } = props;
+    const containerDivRef = useRef<HTMLDivElement>(null);
+    const [cacheNodes, setCacheNodes] = useState<Array<CacheNode>>([]);
 
     useLayoutEffect(() => {
-        if (isNil(activeName)) return
+        if (isNil(activeName)) return;
         setCacheNodes(prevCacheNodes => {
+            (() => {
+                const dropdowns = document.querySelectorAll('.ant-select-dropdown');
+                dropdowns.forEach(dropdown => {
+                    if (dropdown) {
+                        dropdown.setAttribute('style', '');
+                    }
+                });
+
+                const pickerDropdowns = document.querySelectorAll('.ant-picker-dropdown');
+                pickerDropdowns.forEach(pickerDropdown => {
+                    if (pickerDropdown) {
+                        pickerDropdown.setAttribute('style', '');
+                    }
+                });
+            })();
+
             // remove cacheNodes with cache false node
-            prevCacheNodes = prevCacheNodes.filter(item => item.cache)
+            prevCacheNodes = prevCacheNodes.filter(item => item.cache);
 
             // remove cacheNodes with exclude
             if (!isNil(props.exclude)) {
-                const exclude = isArr(props.exclude) ? props.exclude : [props.exclude]
+                const exclude = isArr(props.exclude) ? props.exclude : [props.exclude];
                 prevCacheNodes = prevCacheNodes.filter(item => {
                     return !exclude.some(exclude => {
                         if (isRegExp(exclude)) {
-                            return exclude.test(item.name)
+                            return exclude.test(item.name);
                         } else {
-                            return item.name === exclude
+                            return item.name === exclude;
                         }
-                    })
-                })
+                    });
+                });
             }
 
             // only keep cacheNodes with include
             if (!isNil(props.include)) {
-                const include = isArr(props.include) ? props.include : [props.include]
+                const include = isArr(props.include) ? props.include : [props.include];
                 prevCacheNodes = prevCacheNodes.filter(item => {
                     return include.some(include => {
                         if (isRegExp(include)) {
-                            return include.test(item.name)
+                            return include.test(item.name);
                         } else {
-                            return item.name === include
+                            return item.name === include;
                         }
-                    })
-                })
+                    });
+                });
             }
 
-            const lastActiveTime = Date.now()
+            const lastActiveTime = Date.now();
 
-            const cacheNode = prevCacheNodes.find(item => item.name === activeName)
+            const cacheNode = prevCacheNodes.find(item => item.name === activeName);
 
             if (cacheNode) {
                 return prevCacheNodes.map(item => {
                     if (item.name === activeName) {
-                        return { name: activeName, cache, lastActiveTime, ele: children }
+                        return { name: activeName, cache, lastActiveTime, ele: children };
                     }
-                    return item
-                })
+                    return item;
+                });
             } else {
                 if (prevCacheNodes.length >= max) {
-                    const removeStrategyFunc = RemoveStrategies[strategy]
+                    const removeStrategyFunc = RemoveStrategies[strategy];
                     if (removeStrategyFunc) {
-                        prevCacheNodes = removeStrategyFunc(prevCacheNodes)
+                        prevCacheNodes = removeStrategyFunc(prevCacheNodes);
                     } else {
-                        throw new Error(`strategy ${strategy} is not supported`)
+                        throw new Error(`strategy ${strategy} is not supported`);
                     }
                 }
-                return [...prevCacheNodes, { name: activeName, cache, lastActiveTime, ele: children }]
+                return [...prevCacheNodes, { name: activeName, cache, lastActiveTime, ele: children }];
             }
-        })
-    }, [children, activeName, setCacheNodes, max, cache, strategy, props.exclude, props.include])
+        });
+    }, [children, activeName, setCacheNodes, max, cache, strategy, props.exclude, props.include]);
 
     useImperativeHandle(
         aliveRef,
@@ -191,35 +207,35 @@ function KeepAlive(props: Props) {
             removeCache: (name: string) => {
                 setTimeout(() => {
                     setCacheNodes(cacheNodes => {
-                        return [...cacheNodes.filter(item => item.name !== name)]
-                    })
-                }, 0)
+                        return [...cacheNodes.filter(item => item.name !== name)];
+                    });
+                }, 0);
             },
             cleanAllCache: () => {
-                setCacheNodes([])
+                setCacheNodes([]);
             },
             cleanOtherCache: () => {
                 setCacheNodes(cacheNodes => {
-                    return [...cacheNodes.filter(item => item.name === activeName)]
-                })
+                    return [...cacheNodes.filter(item => item.name === activeName)];
+                });
             },
         }),
         [cacheNodes, setCacheNodes, activeName],
-    )
+    );
 
     const destroy = useCallback(
         (name: string) => {
             setCacheNodes(cacheNodes => {
-                return cacheNodes.filter(item => item.name !== name)
-            })
+                return cacheNodes.filter(item => item.name !== name);
+            });
         },
         [setCacheNodes],
-    )
+    );
 
     return (
         <Fragment>
             <AnimationWrapper>
-                <div ref={containerDivRef} className={'keep-alive-render'} style={{ height: '100%'}}></div>
+                <div ref={containerDivRef} className={'keep-alive-render'} style={{ height: '100%' }}></div>
             </AnimationWrapper>
             <SuspenseElement>
                 {cacheNodes.map(item => {
@@ -235,11 +251,11 @@ function KeepAlive(props: Props) {
                         >
                             {ele}
                         </CacheComponent>
-                    )
+                    );
                 })}
             </SuspenseElement>
         </Fragment>
-    )
+    );
 }
 
-export default KeepAlive
+export default KeepAlive;

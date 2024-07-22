@@ -1,7 +1,4 @@
-import {
-    ComponentType, Fragment, memo, ReactNode,
-    RefObject, useCallback, useLayoutEffect, useMemo, useRef,
-} from 'react';
+import { ComponentType, Fragment, memo, ReactNode, RefObject, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import MemoCacheComponentProvider from '../KeepAliveProvider';
 
@@ -10,7 +7,7 @@ interface Props {
     active: boolean;
     name: string;
     errorElement?: ComponentType<{
-        children: ReactNode
+        children: ReactNode;
     }>;
     children: ReactNode;
     destroy: (name: string) => void;
@@ -50,11 +47,16 @@ function CacheComponent(props: Props) {
         destroy(name);
     }, [destroy, name]);
 
-    return activatedRef.current ? createPortal(<ErrorBoundary>
-            <MemoCacheComponentProvider active={active} destroy={cacheDestroy}>
-                {children}
-            </MemoCacheComponentProvider>
-        </ErrorBoundary>, cacheDiv, name)
+    return activatedRef.current
+        ? createPortal(
+              <ErrorBoundary>
+                  <MemoCacheComponentProvider active={active} destroy={cacheDestroy}>
+                      {children}
+                  </MemoCacheComponentProvider>
+              </ErrorBoundary>,
+              cacheDiv,
+              name,
+          )
         : null;
 }
 

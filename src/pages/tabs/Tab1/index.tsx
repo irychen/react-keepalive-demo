@@ -35,15 +35,21 @@ function Tab1(props: any) {
                 >
                     destroy
                 </button>
-                <textarea value={inputText} onChange={e => setInputText(e.target.value)}
-                          placeholder="input something" />
+                <textarea value={inputText} onChange={e => setInputText(e.target.value)} placeholder="input something" />
             </div>
             <div>
                 <DatePicker></DatePicker>
+                <DatePicker
+                    getPopupContainer={trigger => {
+                        return trigger.parentNode as HTMLElement;
+                    }}
+                ></DatePicker>
                 <DatePicker.RangePicker></DatePicker.RangePicker>
-                <Select style={{
-                    width: 120,
-                }}></Select>
+                <Select
+                    style={{
+                        width: 120,
+                    }}
+                ></Select>
             </div>
             <div>
                 <video src="https://www.w3schools.com/tags/mov_bbb.mp4" style={{ width: '100%' }} controls={true} />
@@ -54,6 +60,5 @@ function Tab1(props: any) {
         </div>
     );
 }
-
 
 export default Tab1;
