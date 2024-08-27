@@ -8,7 +8,7 @@ function Tab1(props: any) {
 
     console.log('Tab1 rendered', props.name);
 
-    const { active, destroy } = useKeepAliveContext();
+    const { active, destroy, refresh } = useKeepAliveContext();
 
     useEffect(() => {
         console.log('Tab1 active', active);
@@ -34,6 +34,15 @@ function Tab1(props: any) {
                     onClick={() => destroy()}
                 >
                     destroy
+                </button>
+                <button
+                    className={'button'}
+                    style={{
+                        marginTop: '10px',
+                    }}
+                    onClick={() => refresh()}
+                >
+                    refresh
                 </button>
                 <textarea value={inputText} onChange={e => setInputText(e.target.value)} placeholder="input something" />
             </div>

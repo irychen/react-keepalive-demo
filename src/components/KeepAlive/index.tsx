@@ -12,6 +12,7 @@ import {
 } from 'react';
 import CacheComponent from '../CacheComponent';
 import { isArr, isNil, isRegExp } from '../../utils';
+import { safeStartTransition } from '../../compat/startTransition';
 
 type Strategy = 'PRE' | 'LRU';
 
@@ -67,7 +68,41 @@ interface Props {
         children: ReactNode;
     }>;
 
+    /**
+     * onBeforeActive: callback before active
+     * @param name
+     *
+     * you can do something before active like set style for dropdown
+     *
+     * example:
+     * ```tsx
+     * // fix the style flashing issue when using Antd Dropdown and Select components, which occurs when the components are wrapped by Suspense and cached.
+     *
+     * // set .ant-select-dropdown .ant-picker-dropdown style to ''
+     * const dropdowns = document.querySelectorAll('.ant-select-dropdown');
+     * dropdowns.forEach(dropdown => {
+     *     if (dropdown) {
+     *         dropdown.setAttribute('style', '');
+     *     }
+     * });
+     *
+     * const pickerDropdowns = document.querySelectorAll('.ant-picker-dropdown');
+     * pickerDropdowns.forEach(pickerDropdown => {
+     *     if (pickerDropdown) {
+     *         pickerDropdown.setAttribute('style', '');
+     *     }
+     * });
+     * ```
+     */
     onBeforeActive?: (name: string) => void;
+    /**
+     *  containerDivRef: root node to mount cacheNodes
+     */
+    containerDivRef?: MutableRefObject<HTMLDivElement>;
+    /**
+     *  cacheDivClassName: className set for cacheNodes
+     */
+    cacheDivClassName?: string;
 }
 
 interface CacheNode {
@@ -75,6 +110,7 @@ interface CacheNode {
     ele?: ReactNode;
     cache: boolean;
     lastActiveTime: number;
+    renderCount: number;
 }
 
 /**
@@ -101,11 +137,28 @@ const RemoveStrategies: Record<string, (nodes: CacheNode[]) => CacheNode[]> = {
 export type KeepAliveRef = {
     getCaches: () => Array<CacheNode>;
 
-    removeCache: (name: string) => void;
+    /**
+     * remove cacheNode by name
+     * @param name cacheNode name to remove
+     * @returns
+     */
+    removeCache: (name: string) => Promise<void>;
 
+    /**
+     * clean all cacheNodes
+     */
     cleanAllCache: () => void;
 
+    /**
+     * clean other cacheNodes except current active cacheNode
+     */
     cleanOtherCache: () => void;
+
+    /**
+     * refresh cacheNode by name
+     * @param name cacheNode name to refresh if name is not provided, refresh current active cacheNode
+     */
+    refresh: (name?: string) => void;
 };
 
 export function useKeepaliveRef() {
@@ -124,68 +177,74 @@ function KeepAlive(props: Props) {
         suspenseElement: SuspenseElement = Fragment,
         animationWrapper: AnimationWrapper = Fragment,
         onBeforeActive,
+        containerDivRef: containerDivRefFromProps,
+        cacheDivClassName,
     } = props;
-    const containerDivRef = useRef<HTMLDivElement>(null);
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const containerDivRef = containerDivRefFromProps || useRef<HTMLDivElement>(null);
     const [cacheNodes, setCacheNodes] = useState<Array<CacheNode>>([]);
 
     useLayoutEffect(() => {
         if (isNil(activeName)) return;
-        setCacheNodes(prevCacheNodes => {
-            // remove cacheNodes with cache false node
-            prevCacheNodes = prevCacheNodes.filter(item => item.cache);
+        safeStartTransition(() => {
+            setCacheNodes(prevCacheNodes => {
+                // remove cacheNodes with cache false node
+                prevCacheNodes = prevCacheNodes.filter(item => item.cache);
 
-            // remove cacheNodes with exclude
-            if (!isNil(props.exclude)) {
-                const exclude = isArr(props.exclude) ? props.exclude : [props.exclude];
-                prevCacheNodes = prevCacheNodes.filter(item => {
-                    return !exclude.some(exclude => {
-                        if (isRegExp(exclude)) {
-                            return exclude.test(item.name);
-                        } else {
-                            return item.name === exclude;
-                        }
+                // remove cacheNodes with exclude
+                if (!isNil(props.exclude)) {
+                    const exclude = isArr(props.exclude) ? props.exclude : [props.exclude];
+                    prevCacheNodes = prevCacheNodes.filter(item => {
+                        return !exclude.some(exclude => {
+                            if (isRegExp(exclude)) {
+                                return exclude.test(item.name);
+                            } else {
+                                return item.name === exclude;
+                            }
+                        });
                     });
-                });
-            }
-
-            // only keep cacheNodes with include
-            if (!isNil(props.include)) {
-                const include = isArr(props.include) ? props.include : [props.include];
-                prevCacheNodes = prevCacheNodes.filter(item => {
-                    return include.some(include => {
-                        if (isRegExp(include)) {
-                            return include.test(item.name);
-                        } else {
-                            return item.name === include;
-                        }
-                    });
-                });
-            }
-
-            const lastActiveTime = Date.now();
-
-            const cacheNode = prevCacheNodes.find(item => item.name === activeName);
-
-            if (cacheNode) {
-                return prevCacheNodes.map(item => {
-                    if (item.name === activeName) {
-                        onBeforeActive && onBeforeActive(activeName);
-                        return { name: activeName, cache, lastActiveTime, ele: children };
-                    }
-                    return item;
-                });
-            } else {
-                onBeforeActive && onBeforeActive(activeName);
-                if (prevCacheNodes.length >= max) {
-                    const removeStrategyFunc = RemoveStrategies[strategy];
-                    if (removeStrategyFunc) {
-                        prevCacheNodes = removeStrategyFunc(prevCacheNodes);
-                    } else {
-                        throw new Error(`strategy ${strategy} is not supported`);
-                    }
                 }
-                return [...prevCacheNodes, { name: activeName, cache, lastActiveTime, ele: children }];
-            }
+
+                // only keep cacheNodes with include
+                if (!isNil(props.include)) {
+                    const include = isArr(props.include) ? props.include : [props.include];
+                    prevCacheNodes = prevCacheNodes.filter(item => {
+                        return include.some(include => {
+                            if (isRegExp(include)) {
+                                return include.test(item.name);
+                            } else {
+                                return item.name === include;
+                            }
+                        });
+                    });
+                }
+
+                const lastActiveTime = Date.now();
+
+                const cacheNode = prevCacheNodes.find(item => item.name === activeName);
+
+                if (cacheNode) {
+                    return prevCacheNodes.map(item => {
+                        if (item.name === activeName) {
+                            onBeforeActive && onBeforeActive(activeName);
+                            return { name: activeName, cache, lastActiveTime, ele: children, renderCount: item.renderCount };
+                        }
+                        return item;
+                    });
+                } else {
+                    onBeforeActive && onBeforeActive(activeName);
+                    if (prevCacheNodes.length >= max) {
+                        const removeStrategyFunc = RemoveStrategies[strategy];
+                        if (removeStrategyFunc) {
+                            prevCacheNodes = removeStrategyFunc(prevCacheNodes);
+                        } else {
+                            throw new Error(`strategy ${strategy} is not supported`);
+                        }
+                    }
+                    return [...prevCacheNodes, { name: activeName, cache, lastActiveTime, ele: children, renderCount: 0 }];
+                }
+            });
         });
     }, [children, activeName, setCacheNodes, max, cache, strategy, props.exclude, props.include]);
 
@@ -193,12 +252,15 @@ function KeepAlive(props: Props) {
         aliveRef,
         () => ({
             getCaches: () => cacheNodes,
-            removeCache: (name: string) => {
-                setTimeout(() => {
-                    setCacheNodes(cacheNodes => {
-                        return [...cacheNodes.filter(item => item.name !== name)];
-                    });
-                }, 0);
+            removeCache: async (name: string) => {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        setCacheNodes(cacheNodes => {
+                            return [...cacheNodes.filter(item => item.name !== name)];
+                        });
+                        resolve();
+                    }, 0);
+                });
             },
             cleanAllCache: () => {
                 setCacheNodes([]);
@@ -206,6 +268,18 @@ function KeepAlive(props: Props) {
             cleanOtherCache: () => {
                 setCacheNodes(cacheNodes => {
                     return [...cacheNodes.filter(item => item.name === activeName)];
+                });
+            },
+
+            refresh: (name?: string) => {
+                setCacheNodes(cacheNodes => {
+                    const targetName = name || activeName;
+                    return cacheNodes.map(item => {
+                        if (item.name === targetName) {
+                            return { ...item, renderCount: item.renderCount + 1 };
+                        }
+                        return item;
+                    });
                 });
             },
         }),
@@ -221,6 +295,21 @@ function KeepAlive(props: Props) {
         [setCacheNodes],
     );
 
+    const refresh = useCallback(
+        (name?: string) => {
+            setCacheNodes(cacheNodes => {
+                const targetName = name || activeName;
+                return cacheNodes.map(item => {
+                    if (item.name === targetName) {
+                        return { ...item, renderCount: item.renderCount + 1 };
+                    }
+                    return item;
+                });
+            });
+        },
+        [setCacheNodes, activeName],
+    );
+
     return (
         <Fragment>
             <AnimationWrapper>
@@ -228,15 +317,18 @@ function KeepAlive(props: Props) {
             </AnimationWrapper>
             <SuspenseElement>
                 {cacheNodes.map(item => {
-                    const { name, ele } = item;
+                    const { name, ele, renderCount } = item;
                     return (
                         <CacheComponent
+                            renderCount={renderCount}
                             containerDivRef={containerDivRef}
                             key={name}
                             errorElement={errorElement}
                             active={activeName === name}
                             name={name}
                             destroy={destroy}
+                            refresh={refresh}
+                            cacheDivClassName={cacheDivClassName}
                         >
                             {ele}
                         </CacheComponent>

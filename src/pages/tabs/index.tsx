@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import KeepAlive, { useKeepaliveRef } from '../../components/KeepAlive';
+import { Space } from 'antd';
 
 /**
  * antd 组件的懒加载 select datepicker 之类的 会有问题
@@ -55,33 +56,51 @@ function TabsPage() {
                         marginTop: '10px',
                     }}
                 >
-                    <button
-                        className={'button'}
-                        onClick={() => {
-                            aliveRef.current?.cleanAllCache();
-                        }}
-                    >
-                        remove all cacheNodes
-                    </button>
-                    <button
-                        style={{
-                            margin: '0 10px',
-                        }}
-                        className={'button'}
-                        onClick={() => {
-                            aliveRef.current?.cleanOtherCache();
-                        }}
-                    >
-                        remove other cacheNodes
-                    </button>
-                    <button
-                        className={'button'}
-                        onClick={() => {
-                            console.log(aliveRef.current?.getCaches());
-                        }}
-                    >
-                        print cacheNodes
-                    </button>
+                    <Space>
+                        <button
+                            className={'button'}
+                            onClick={() => {
+                                aliveRef.current?.cleanAllCache();
+                            }}
+                        >
+                            remove all cacheNodes
+                        </button>
+                        <button
+                            className={'button'}
+                            onClick={() => {
+                                aliveRef.current?.cleanOtherCache();
+                            }}
+                        >
+                            remove other cacheNodes
+                        </button>
+                        <button
+                            className={'button'}
+                            onClick={() => {
+                                console.log(aliveRef.current?.getCaches());
+                            }}
+                        >
+                            print cacheNodes
+                        </button>
+
+                        {/* refresh */}
+                        <button
+                            className={'button'}
+                            onClick={() => {
+                                aliveRef.current?.refresh();
+                            }}
+                        >
+                            refresh
+                        </button>
+                        {/* refresh */}
+                        <button
+                            className={'button'}
+                            onClick={() => {
+                                aliveRef.current?.refresh('Tab2');
+                            }}
+                        >
+                            refresh Tab2
+                        </button>
+                    </Space>
                 </div>
                 <div
                     style={{
@@ -93,20 +112,6 @@ function TabsPage() {
                         <KeepAlive
                             onBeforeActive={name => {
                                 console.log('set style', name);
-                                // set .ant-select-dropdown .ant-picker-dropdown style to ''
-                                const dropdowns = document.querySelectorAll('.ant-select-dropdown');
-                                dropdowns.forEach(dropdown => {
-                                    if (dropdown) {
-                                        dropdown.setAttribute('style', '');
-                                    }
-                                });
-
-                                const pickerDropdowns = document.querySelectorAll('.ant-picker-dropdown');
-                                pickerDropdowns.forEach(pickerDropdown => {
-                                    if (pickerDropdown) {
-                                        pickerDropdown.setAttribute('style', '');
-                                    }
-                                });
                             }}
                             aliveRef={aliveRef}
                             max={20}

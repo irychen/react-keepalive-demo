@@ -11,10 +11,23 @@ interface Props {
     }>;
     children: ReactNode;
     destroy: (name: string) => void;
+    refresh: (name?: string) => void;
+    cacheDivClassName?: string;
+    renderCount: number;
 }
 
 function CacheComponent(props: Props) {
-    const { containerDivRef, active, children, destroy, name, errorElement: ErrorBoundary = Fragment } = props;
+    const {
+        containerDivRef,
+        active,
+        children,
+        destroy,
+        name,
+        refresh,
+        errorElement: ErrorBoundary = Fragment,
+        cacheDivClassName = `cache-component`,
+        renderCount,
+    } = props;
     const activatedRef = useRef(false);
 
     activatedRef.current = activatedRef.current || active;
@@ -23,9 +36,9 @@ function CacheComponent(props: Props) {
         const cacheDiv = document.createElement('div');
         cacheDiv.setAttribute('data-name', name);
         cacheDiv.setAttribute('style', 'height: 100%');
-        cacheDiv.className = `cache-component`;
+        cacheDiv.className = cacheDivClassName;
         return cacheDiv;
-    }, []);
+    }, [renderCount]);
 
     useLayoutEffect(() => {
         const containerDiv = containerDivRef.current;
@@ -50,7 +63,7 @@ function CacheComponent(props: Props) {
     return activatedRef.current
         ? createPortal(
               <ErrorBoundary>
-                  <MemoCacheComponentProvider active={active} destroy={cacheDestroy}>
+                  <MemoCacheComponentProvider active={active} destroy={cacheDestroy} refresh={refresh}>
                       {children}
                   </MemoCacheComponentProvider>
               </ErrorBoundary>,
