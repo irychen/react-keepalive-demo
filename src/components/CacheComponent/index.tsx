@@ -14,6 +14,8 @@ interface Props {
     refresh: (name?: string) => void;
     cacheDivClassName?: string;
     renderCount: number;
+    async: boolean;
+    microAsync: boolean;
 }
 
 function CacheComponent(props: Props) {
@@ -27,6 +29,8 @@ function CacheComponent(props: Props) {
         errorElement: ErrorBoundary = Fragment,
         cacheDivClassName = `cache-component`,
         renderCount,
+        async,
+        microAsync,
     } = props;
     const activatedRef = useRef(false);
 
@@ -36,6 +40,7 @@ function CacheComponent(props: Props) {
         const cacheDiv = document.createElement('div');
         cacheDiv.setAttribute('data-name', name);
         cacheDiv.setAttribute('style', 'height: 100%');
+        cacheDiv.setAttribute('data-render-count', renderCount.toString());
         cacheDiv.className = cacheDivClassName;
         return cacheDiv;
     }, [renderCount]);
@@ -43,15 +48,39 @@ function CacheComponent(props: Props) {
     useLayoutEffect(() => {
         const containerDiv = containerDivRef.current;
         cacheDiv.classList.remove('active', 'inactive');
-        if (active) {
+
+        function renderCacheDiv() {
             containerDiv?.appendChild(cacheDiv);
             cacheDiv.classList.add('active');
             cacheDiv.setAttribute('data-active', 'true');
+        }
+
+        if (active) {
+            // check if the containerDiv has childNodes
+            if (containerDiv?.childNodes.length !== 0) {
+                // remove all the childNodes
+                containerDiv?.childNodes.forEach(node => {
+                    containerDiv?.removeChild(node);
+                });
+            }
+            if (async) {
+                if (microAsync) {
+                    Promise.resolve().then(() => {
+                        renderCacheDiv();
+                    });
+                } else {
+                    setTimeout(() => {
+                        renderCacheDiv();
+                    }, 0);
+                }
+            } else {
+                renderCacheDiv();
+            }
         } else {
             if (containerDiv?.contains(cacheDiv)) {
                 cacheDiv.setAttribute('data-active', 'false');
                 cacheDiv.classList.add('inactive');
-                containerDiv?.removeChild(cacheDiv);
+                cacheDiv.remove();
             }
         }
     }, [active, containerDivRef, cacheDiv]);

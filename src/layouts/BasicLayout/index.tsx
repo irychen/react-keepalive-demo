@@ -1,10 +1,15 @@
 import { Link, useLocation, useOutlet } from 'react-router-dom';
 import { useMemo } from 'react';
-import KeepAlive from '../../components/KeepAlive';
+import KeepAlive, { useKeepaliveRef } from '../../components/KeepAlive';
 
 function BasicLayoutWithCache() {
     const outlet = useOutlet();
     const location = useLocation();
+    const aliveRef = useKeepaliveRef();
+
+    function refresh() {
+        aliveRef.current?.refresh();
+    }
 
     /**
      * to distinguish different pages to cache
@@ -50,8 +55,12 @@ function BasicLayoutWithCache() {
             >
                 <button className={'button'}>Tabs</button>
             </Link>
+
+            <button className={'button'} onClick={refresh}>
+                Refresh
+            </button>
             <div>
-                <KeepAlive activeName={cacheKey} exclude={[/\/exclude-counter/]} max={10} strategy={'LRU'}>
+                <KeepAlive aliveRef={aliveRef} activeName={cacheKey} exclude={[/\/exclude-counter/]} max={10} strategy={'LRU'}>
                     {outlet}
                 </KeepAlive>
             </div>

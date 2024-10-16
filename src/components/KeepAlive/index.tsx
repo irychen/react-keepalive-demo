@@ -72,27 +72,8 @@ interface Props {
      * onBeforeActive: callback before active
      * @param name
      *
-     * you can do something before active like set style for dropdown
+     * you can do something before active
      *
-     * example:
-     * ```tsx
-     * // fix the style flashing issue when using Antd Dropdown and Select components, which occurs when the components are wrapped by Suspense and cached.
-     *
-     * // set .ant-select-dropdown .ant-picker-dropdown style to ''
-     * const dropdowns = document.querySelectorAll('.ant-select-dropdown');
-     * dropdowns.forEach(dropdown => {
-     *     if (dropdown) {
-     *         dropdown.setAttribute('style', '');
-     *     }
-     * });
-     *
-     * const pickerDropdowns = document.querySelectorAll('.ant-picker-dropdown');
-     * pickerDropdowns.forEach(pickerDropdown => {
-     *     if (pickerDropdown) {
-     *         pickerDropdown.setAttribute('style', '');
-     *     }
-     * });
-     * ```
      */
     onBeforeActive?: (name: string) => void;
     /**
@@ -103,6 +84,15 @@ interface Props {
      *  cacheDivClassName: className set for cacheNodes
      */
     cacheDivClassName?: string;
+
+    /**
+     * async: whether to use async to render current cacheNode default false
+     */
+    async?: boolean;
+    /**
+     * microAsync: whether to use microAsync to render current cacheNode default true
+     */
+    microAsync?: boolean;
 }
 
 interface CacheNode {
@@ -179,6 +169,8 @@ function KeepAlive(props: Props) {
         onBeforeActive,
         containerDivRef: containerDivRefFromProps,
         cacheDivClassName,
+        async = false,
+        microAsync = true,
     } = props;
 
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -320,6 +312,8 @@ function KeepAlive(props: Props) {
                     const { name, ele, renderCount } = item;
                     return (
                         <CacheComponent
+                            async={async}
+                            microAsync={microAsync}
                             renderCount={renderCount}
                             containerDivRef={containerDivRef}
                             key={name}
