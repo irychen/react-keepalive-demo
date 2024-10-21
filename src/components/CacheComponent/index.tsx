@@ -1,9 +1,7 @@
-import { ComponentType, Fragment, memo, ReactNode, RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { ComponentType, Fragment, memo, ReactNode, RefObject, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import MemoCacheComponentProvider from '../KeepAliveProvider';
 import { delayAsync, getLock, setLock } from '../../utils';
-import { safeStartTransition } from '../../compat/startTransition';
-
 interface Props {
     containerDivRef: RefObject<HTMLDivElement>;
     active: boolean;
@@ -21,13 +19,11 @@ interface Props {
     transition: boolean;
     duration: number;
     isCached: (name: string) => boolean;
-    removeLockRef: { current: boolean | null };
 }
 
 function CacheComponent(props: Props) {
     const {
         containerDivRef,
-        removeLockRef,
         active,
         children,
         destroy,
@@ -56,7 +52,7 @@ function CacheComponent(props: Props) {
         cacheDiv.setAttribute('data-render-count', renderCount.toString());
         cacheDiv.className = cacheDivClassName;
         return cacheDiv;
-    }, []);
+    }, [renderCount]);
 
     const containerDiv = containerDivRef.current;
 
@@ -73,13 +69,11 @@ function CacheComponent(props: Props) {
             Array.from(containerDiv.children).forEach(node => {
                 node.remove();
             });
-            if (active) {
-                console.warn(`transition add ${name}`, active, containerDiv);
-                containerDiv.appendChild(cacheDiv);
-                cacheDiv.classList.remove('inactive');
-                cacheDiv.classList.add('active');
-                cacheDiv.setAttribute('data-active', 'true');
-            }
+            console.warn(`transition add ${name}`, active, containerDiv);
+            containerDiv.appendChild(cacheDiv);
+            cacheDiv.classList.remove('inactive');
+            cacheDiv.classList.add('active');
+            cacheDiv.setAttribute('data-active', 'true');
             setTimeout(() => {
                 setLock(false);
             }, 300);

@@ -180,7 +180,6 @@ function KeepAlive(props: Props) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const containerDivRef = containerDivRefFromProps || useRef<HTMLDivElement>(null);
     const [cacheNodes, setCacheNodes] = useState<Array<CacheNode>>([]);
-    const removeLockRef = useRef<boolean | null>(false);
 
     const isCached = useCallback(
         (name: string) => {
@@ -310,7 +309,6 @@ function KeepAlive(props: Props) {
                     const { name, ele, renderCount } = item;
                     return (
                         <CacheComponent
-                            removeLockRef={removeLockRef}
                             isCached={isCached}
                             transition={transition}
                             duration={duration}
