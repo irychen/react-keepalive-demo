@@ -5,6 +5,7 @@ import {
     ReactNode,
     RefObject,
     useCallback,
+    useEffect,
     useImperativeHandle,
     useLayoutEffect,
     useRef,
@@ -93,12 +94,14 @@ interface Props {
      * microAsync: whether to use microAsync to render current cacheNode default true
      */
     microAsync?: boolean;
+
+    transition?: boolean;
+    duration?: number;
 }
 
 interface CacheNode {
     name: string;
     ele?: ReactNode;
-    cache: boolean;
     lastActiveTime: number;
     renderCount: number;
 }
@@ -158,7 +161,6 @@ export function useKeepaliveRef() {
 function KeepAlive(props: Props) {
     const {
         aliveRef,
-        cache = true,
         strategy = 'LRU',
         activeName,
         children,
@@ -171,56 +173,58 @@ function KeepAlive(props: Props) {
         cacheDivClassName,
         async = false,
         microAsync = true,
+        transition = false,
+        duration = 300,
     } = props;
 
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const containerDivRef = containerDivRefFromProps || useRef<HTMLDivElement>(null);
     const [cacheNodes, setCacheNodes] = useState<Array<CacheNode>>([]);
+    const removeLockRef = useRef<boolean | null>(false);
+
+    const isCached = useCallback(
+        (name: string) => {
+            const includes = isArr(props.include) ? props.include : props.include ? [props.include] : [];
+            const excludes = isArr(props.exclude) ? props.exclude : props.exclude ? [props.exclude] : [];
+            if (
+                includes.some(include => {
+                    if (isRegExp(include)) {
+                        return include.test(name);
+                    } else {
+                        return name === include;
+                    }
+                })
+            )
+                return true;
+
+            if (
+                excludes.some(exclude => {
+                    if (isRegExp(exclude)) {
+                        return exclude.test(name);
+                    } else {
+                        return name === exclude;
+                    }
+                })
+            )
+                return false;
+
+            return true;
+        },
+        [props.exclude, props.include],
+    );
 
     useLayoutEffect(() => {
         if (isNil(activeName)) return;
         safeStartTransition(() => {
             setCacheNodes(prevCacheNodes => {
-                // remove cacheNodes with cache false node
-                prevCacheNodes = prevCacheNodes.filter(item => item.cache);
-
-                // remove cacheNodes with exclude
-                if (!isNil(props.exclude)) {
-                    const exclude = isArr(props.exclude) ? props.exclude : [props.exclude];
-                    prevCacheNodes = prevCacheNodes.filter(item => {
-                        return !exclude.some(exclude => {
-                            if (isRegExp(exclude)) {
-                                return exclude.test(item.name);
-                            } else {
-                                return item.name === exclude;
-                            }
-                        });
-                    });
-                }
-
-                // only keep cacheNodes with include
-                if (!isNil(props.include)) {
-                    const include = isArr(props.include) ? props.include : [props.include];
-                    prevCacheNodes = prevCacheNodes.filter(item => {
-                        return include.some(include => {
-                            if (isRegExp(include)) {
-                                return include.test(item.name);
-                            } else {
-                                return item.name === include;
-                            }
-                        });
-                    });
-                }
-
                 const lastActiveTime = Date.now();
-
                 const cacheNode = prevCacheNodes.find(item => item.name === activeName);
 
                 if (cacheNode) {
                     return prevCacheNodes.map(item => {
                         if (item.name === activeName) {
                             onBeforeActive && onBeforeActive(activeName);
-                            return { name: activeName, cache, lastActiveTime, ele: children, renderCount: item.renderCount };
+                            return { name: activeName, lastActiveTime, ele: children, renderCount: item.renderCount };
                         }
                         return item;
                     });
@@ -234,49 +238,11 @@ function KeepAlive(props: Props) {
                             throw new Error(`strategy ${strategy} is not supported`);
                         }
                     }
-                    return [...prevCacheNodes, { name: activeName, cache, lastActiveTime, ele: children, renderCount: 0 }];
+                    return [...prevCacheNodes, { name: activeName, lastActiveTime, ele: children, renderCount: 0 }];
                 }
             });
         });
-    }, [children, activeName, setCacheNodes, max, cache, strategy, props.exclude, props.include]);
-
-    useImperativeHandle(
-        aliveRef,
-        () => ({
-            getCaches: () => cacheNodes,
-            removeCache: async (name: string) => {
-                return new Promise(resolve => {
-                    setTimeout(() => {
-                        setCacheNodes(cacheNodes => {
-                            return [...cacheNodes.filter(item => item.name !== name)];
-                        });
-                        resolve();
-                    }, 0);
-                });
-            },
-            cleanAllCache: () => {
-                setCacheNodes([]);
-            },
-            cleanOtherCache: () => {
-                setCacheNodes(cacheNodes => {
-                    return [...cacheNodes.filter(item => item.name === activeName)];
-                });
-            },
-
-            refresh: (name?: string) => {
-                setCacheNodes(cacheNodes => {
-                    const targetName = name || activeName;
-                    return cacheNodes.map(item => {
-                        if (item.name === targetName) {
-                            return { ...item, renderCount: item.renderCount + 1 };
-                        }
-                        return item;
-                    });
-                });
-            },
-        }),
-        [cacheNodes, setCacheNodes, activeName],
-    );
+    }, [children, activeName, setCacheNodes, max, strategy, props.exclude, props.include]);
 
     const destroy = useCallback(
         (name: string) => {
@@ -302,6 +268,38 @@ function KeepAlive(props: Props) {
         [setCacheNodes, activeName],
     );
 
+    useImperativeHandle(
+        aliveRef,
+        () => ({
+            getCaches: () => cacheNodes,
+            removeCache: async (name: string) => {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        setCacheNodes(cacheNodes => {
+                            return [...cacheNodes.filter(item => item.name !== name)];
+                        });
+                        resolve();
+                    }, 0);
+                });
+            },
+            cleanAllCache: () => {
+                setCacheNodes([]);
+            },
+            cleanOtherCache: () => {
+                setCacheNodes(cacheNodes => {
+                    return [...cacheNodes.filter(item => item.name === activeName)];
+                });
+            },
+
+            refresh,
+        }),
+        [cacheNodes, setCacheNodes, activeName],
+    );
+
+    useEffect(() => {
+        console.log('cacheNodes', cacheNodes);
+    }, [cacheNodes]);
+
     return (
         <Fragment>
             <AnimationWrapper>
@@ -312,6 +310,10 @@ function KeepAlive(props: Props) {
                     const { name, ele, renderCount } = item;
                     return (
                         <CacheComponent
+                            removeLockRef={removeLockRef}
+                            isCached={isCached}
+                            transition={transition}
+                            duration={duration}
                             async={async}
                             microAsync={microAsync}
                             renderCount={renderCount}

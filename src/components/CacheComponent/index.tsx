@@ -1,6 +1,8 @@
-import { ComponentType, Fragment, memo, ReactNode, RefObject, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { ComponentType, Fragment, memo, ReactNode, RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import MemoCacheComponentProvider from '../KeepAliveProvider';
+import { delayAsync, getLock, setLock } from '../../utils';
+import { safeStartTransition } from '../../compat/startTransition';
 
 interface Props {
     containerDivRef: RefObject<HTMLDivElement>;
@@ -16,11 +18,16 @@ interface Props {
     renderCount: number;
     async: boolean;
     microAsync: boolean;
+    transition: boolean;
+    duration: number;
+    isCached: (name: string) => boolean;
+    removeLockRef: { current: boolean | null };
 }
 
 function CacheComponent(props: Props) {
     const {
         containerDivRef,
+        removeLockRef,
         active,
         children,
         destroy,
@@ -31,97 +38,59 @@ function CacheComponent(props: Props) {
         renderCount,
         async,
         microAsync,
+        transition,
+        duration,
+        isCached,
     } = props;
     const activatedRef = useRef(false);
+
+    const cache = isCached(name);
 
     activatedRef.current = activatedRef.current || active;
 
     const cacheDiv = useMemo(() => {
         const cacheDiv = document.createElement('div');
         cacheDiv.setAttribute('data-name', name);
+        cacheDiv.setAttribute('data-cached', cache.valueOf().toString());
         cacheDiv.setAttribute('style', 'height: 100%');
         cacheDiv.setAttribute('data-render-count', renderCount.toString());
         cacheDiv.className = cacheDivClassName;
         return cacheDiv;
-    }, [renderCount]);
+    }, []);
 
     const containerDiv = containerDivRef.current;
-    cacheDiv.classList.remove('active', 'inactive');
 
-    function renderCacheDiv() {
-        containerDiv?.appendChild(cacheDiv);
-        cacheDiv.classList.add('active');
-        cacheDiv.setAttribute('data-active', 'true');
-    }
-
-    if (active) {
-        // check if the containerDiv has childNodes
-        if (containerDiv?.childNodes.length !== 0) {
-            // remove all the childNodes
-            containerDiv?.childNodes.forEach(node => {
-                containerDiv?.removeChild(node);
+    (async () => {
+        if (containerDiv && active && getLock() === false) {
+            setLock(true);
+            console.warn(`transition remove ${name}`, active, containerDiv);
+            Array.from(containerDiv.children).forEach(node => {
+                node.setAttribute('data-active', 'false');
+                node.classList.remove('active');
+                node.classList.add('inactive');
             });
-        }
-        if (async) {
-            if (microAsync) {
-                Promise.resolve().then(() => {
-                    renderCacheDiv();
-                });
-            } else {
-                setTimeout(() => {
-                    renderCacheDiv();
-                }, 0);
+            await delayAsync(duration);
+            Array.from(containerDiv.children).forEach(node => {
+                node.remove();
+            });
+            if (active) {
+                console.warn(`transition add ${name}`, active, containerDiv);
+                containerDiv.appendChild(cacheDiv);
+                cacheDiv.classList.remove('inactive');
+                cacheDiv.classList.add('active');
+                cacheDiv.setAttribute('data-active', 'true');
             }
-        } else {
-            renderCacheDiv();
+            setTimeout(() => {
+                setLock(false);
+            }, 300);
         }
-    } else {
-        if (containerDiv?.contains(cacheDiv)) {
-            cacheDiv.setAttribute('data-active', 'false');
-            cacheDiv.classList.add('inactive');
-            cacheDiv.remove();
-        }
-    }
+    })();
 
-    // useLayoutEffect(() => {
-    //     const containerDiv = containerDivRef.current;
-    //     cacheDiv.classList.remove('active', 'inactive');
+    // if (transition) {
+    //     (async () => {
 
-    //     function renderCacheDiv() {
-    //         containerDiv?.appendChild(cacheDiv);
-    //         cacheDiv.classList.add('active');
-    //         cacheDiv.setAttribute('data-active', 'true');
-    //     }
-
-    //     if (active) {
-    //         // check if the containerDiv has childNodes
-    //         if (containerDiv?.childNodes.length !== 0) {
-    //             // remove all the childNodes
-    //             containerDiv?.childNodes.forEach(node => {
-    //                 containerDiv?.removeChild(node);
-    //             });
-    //         }
-    //         if (async) {
-    //             if (microAsync) {
-    //                 Promise.resolve().then(() => {
-    //                     renderCacheDiv();
-    //                 });
-    //             } else {
-    //                 setTimeout(() => {
-    //                     renderCacheDiv();
-    //                 }, 0);
-    //             }
-    //         } else {
-    //             renderCacheDiv();
-    //         }
-    //     } else {
-    //         if (containerDiv?.contains(cacheDiv)) {
-    //             cacheDiv.setAttribute('data-active', 'false');
-    //             cacheDiv.classList.add('inactive');
-    //             cacheDiv.remove();
-    //         }
-    //     }
-    // }, [active, containerDivRef, cacheDiv]);
+    //     })();
+    // }
 
     const cacheDestroy = useCallback(() => {
         destroy(name);

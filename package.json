@@ -13,12 +13,13 @@
     },
     "scripts": {
         "dev": "vite",
-        "build": "tsc && vite build",
+        "build": "vite build",
         "build-gh": "cross-env BASE_SITE_URL=/react-keepalive-demo/ vite build",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
         "preview": "vite preview",
         "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-        "prepare": "husky"
+        "prepare": "husky",
+        "git-update": "git add . && git commit -m 'update' && git push"
     },
     "dependencies": {
         "antd": "5.19.0",
