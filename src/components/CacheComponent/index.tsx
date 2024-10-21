@@ -1,7 +1,8 @@
-import { ComponentType, Fragment, memo, ReactNode, RefObject, useCallback, useMemo, useRef } from 'react';
+import { ComponentType, Fragment, memo, ReactNode, RefObject, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import MemoCacheComponentProvider from '../KeepAliveProvider';
 import { delayAsync, getLock, setLock } from '../../utils';
+import { safeStartTransition } from '../../compat/startTransition';
 interface Props {
     containerDivRef: RefObject<HTMLDivElement>;
     active: boolean;
@@ -55,30 +56,39 @@ function CacheComponent(props: Props) {
     }, [renderCount]);
 
     const containerDiv = containerDivRef.current;
+    useLayoutEffect(() => {
+        safeStartTransition(async () => {
+            if (containerDiv && active && getLock() === false) {
+                setLock(true);
+                const nodes = Array.from(containerDiv.children);
+                const activeNodes = nodes.filter(node => node.getAttribute('data-active') === 'true' && node.getAttribute('data-name') !== name);
+                for (const node of activeNodes) {
+                    node.classList.remove('active');
+                    node.classList.add('inactive');
+                    node.setAttribute('data-active', 'false');
+                }
+                await delayAsync(duration);
+                for (const node of activeNodes) {
+                    node.remove();
+                }
+                if (containerDiv.contains(cacheDiv)) {
+                    setTimeout(() => {
+                        setLock(false);
+                    }, duration);
+                    return;
+                }
 
-    (async () => {
-        if (containerDiv && active && getLock() === false) {
-            setLock(true);
-            console.warn(`transition remove ${name}`, active, containerDiv);
-            Array.from(containerDiv.children).forEach(node => {
-                node.setAttribute('data-active', 'false');
-                node.classList.remove('active');
-                node.classList.add('inactive');
-            });
-            await delayAsync(duration);
-            Array.from(containerDiv.children).forEach(node => {
-                node.remove();
-            });
-            console.warn(`transition add ${name}`, active, containerDiv);
-            containerDiv.appendChild(cacheDiv);
-            cacheDiv.classList.remove('inactive');
-            cacheDiv.classList.add('active');
-            cacheDiv.setAttribute('data-active', 'true');
-            setTimeout(() => {
-                setLock(false);
-            }, 300);
-        }
-    })();
+                console.warn(`transition add ${name}`, active, containerDiv);
+                containerDiv.appendChild(cacheDiv);
+                cacheDiv.classList.remove('inactive');
+                cacheDiv.classList.add('active');
+                cacheDiv.setAttribute('data-active', 'true');
+                setTimeout(() => {
+                    setLock(false);
+                }, duration);
+            }
+        });
+    }, [active, renderCount]);
 
     // if (transition) {
     //     (async () => {

@@ -62,12 +62,12 @@ function BasicLayoutWithCache() {
             <div>
                 <Suspense fallback={<div>Loading...</div>}>
                     <KeepAlive
-                        duration={500}
+                        duration={280}
                         transition
                         aliveRef={aliveRef}
                         activeName={cacheKey}
                         exclude={[/\/exclude-counter/]}
-                        max={10}
+                        max={2}
                         strategy={'LRU'}
                     >
                         {outlet}

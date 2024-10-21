@@ -2,12 +2,12 @@ import { createHashRouter, Outlet } from 'react-router-dom';
 import TabsPage from '../pages/tabs';
 import HomeLayout from '../layouts/HomeLayout';
 import BasicLayoutWithCache from '../layouts/BasicLayout';
-import Counter from '../pages/counter';
-import ExcludeCounter from '../pages/exclude-counter';
+// import Counter from '../pages/counter';
+// import ExcludeCounter from '../pages/exclude-counter';
 import { lazy } from 'react';
 
-// const Counter = lazy(() => import('../pages/counter'));
-// const ExcludeCounter = lazy(() => import('../pages/exclude-counter'));
+const Counter = lazy(() => import('../pages/counter'));
+const ExcludeCounter = lazy(() => import('../pages/exclude-counter'));
 
 const router = createHashRouter([
     {
