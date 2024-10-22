@@ -75,6 +75,9 @@ function CacheComponent(props: Props) {
             }
 
             console.warn(`transition add ${name}`, active, containerDiv);
+            for (const node of Array.from(containerDiv.children)) {
+                node.remove();
+            }
             containerDiv.appendChild(cacheDiv);
             cacheDiv.classList.remove('inactive');
             cacheDiv.classList.add('active');
