@@ -1,6 +1,6 @@
-import { ComponentType, Fragment, memo, ReactNode, RefObject, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { ComponentType, Fragment, memo, ReactNode, RefObject, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import MemoCacheComponentProvider from '../KeepAliveProvider';
+
 import { delayAsync, getLock, setLock } from '../../utils';
 import { safeStartTransition } from '../../compat/startTransition';
 interface Props {
@@ -11,8 +11,6 @@ interface Props {
         children: ReactNode;
     }>;
     children: ReactNode;
-    destroy: (name: string) => void;
-    refresh: (name?: string) => void;
     cacheDivClassName?: string;
     renderCount: number;
     async: boolean;
@@ -27,9 +25,7 @@ function CacheComponent(props: Props) {
         containerDivRef,
         active,
         children,
-        destroy,
         name,
-        refresh,
         errorElement: ErrorBoundary = Fragment,
         cacheDivClassName = `cache-component`,
         renderCount,
@@ -56,61 +52,44 @@ function CacheComponent(props: Props) {
     }, [renderCount]);
 
     const containerDiv = containerDivRef.current;
-    useLayoutEffect(() => {
-        safeStartTransition(async () => {
-            if (containerDiv && active && getLock() === false) {
-                setLock(true);
-                const nodes = Array.from(containerDiv.children);
-                const activeNodes = nodes.filter(node => node.getAttribute('data-active') === 'true' && node.getAttribute('data-name') !== name);
-                for (const node of activeNodes) {
-                    node.classList.remove('active');
-                    node.classList.add('inactive');
-                    node.setAttribute('data-active', 'false');
-                }
-                await delayAsync(duration);
-                for (const node of activeNodes) {
-                    node.remove();
-                }
-                if (containerDiv.contains(cacheDiv)) {
-                    setTimeout(() => {
-                        setLock(false);
-                    }, duration);
-                    return;
-                }
 
-                console.warn(`transition add ${name}`, active, containerDiv);
-                containerDiv.appendChild(cacheDiv);
-                cacheDiv.classList.remove('inactive');
-                cacheDiv.classList.add('active');
-                cacheDiv.setAttribute('data-active', 'true');
-                setTimeout(() => {
-                    setLock(false);
-                }, duration);
+    safeStartTransition(async () => {
+        if (containerDiv && active) {
+            // setLock(true);
+            const nodes = Array.from(containerDiv.children);
+            const activeNodes = nodes.filter(node => node.getAttribute('data-active') === 'true' && node.getAttribute('data-name') !== name);
+            for (const node of activeNodes) {
+                node.classList.remove('active');
+                node.classList.add('inactive');
+                node.setAttribute('data-active', 'false');
             }
-        });
-    }, [active, renderCount]);
+            await delayAsync(duration);
+            for (const node of activeNodes) {
+                node.remove();
+            }
+            if (containerDiv.contains(cacheDiv)) {
+                // setTimeout(() => {
+                //     setLock(false);
+                // }, duration);
+                return;
+            }
 
-    // if (transition) {
-    //     (async () => {
+            console.warn(`transition add ${name}`, active, containerDiv);
+            containerDiv.appendChild(cacheDiv);
+            cacheDiv.classList.remove('inactive');
+            cacheDiv.classList.add('active');
+            cacheDiv.setAttribute('data-active', 'true');
+            // setTimeout(() => {
+            //     setLock(false);
+            // }, duration);
+        }
+    });
 
-    //     })();
-    // }
-
-    const cacheDestroy = useCallback(() => {
-        destroy(name);
-    }, [destroy, name]);
-
-    return activatedRef.current
-        ? createPortal(
-              <ErrorBoundary>
-                  <MemoCacheComponentProvider active={active} destroy={cacheDestroy} refresh={refresh}>
-                      {children}
-                  </MemoCacheComponentProvider>
-              </ErrorBoundary>,
-              cacheDiv,
-              name,
-          )
-        : null;
+    return activatedRef.current ? createPortal(<ErrorBoundary>{children}</ErrorBoundary>, cacheDiv, name) : null;
 }
 
-export default memo(CacheComponent);
+export default memo(CacheComponent, (prev, next) => {
+    return prev.active === next.active && prev.renderCount === next.renderCount;
+});
+
+// export default CacheComponent

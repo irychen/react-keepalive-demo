@@ -9,7 +9,7 @@ import { isFn } from '../../utils';
  */
 export interface KeepAliveContext {
     active: boolean;
-    destroy: () => void;
+    destroy: (name: string) => void;
     refresh: (name?: string) => void;
 }
 
@@ -26,7 +26,7 @@ const useCacheComponentContext = () => {
 interface CacheComponentProviderProps {
     children: ReactNode;
     active: boolean;
-    destroy: () => void;
+    destroy: (name: string) => void;
     refresh: (name?: string) => void;
 }
 

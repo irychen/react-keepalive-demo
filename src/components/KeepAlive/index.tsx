@@ -14,6 +14,7 @@ import {
 import CacheComponent from '../CacheComponent';
 import { isArr, isNil, isRegExp } from '../../utils';
 import { safeStartTransition } from '../../compat/startTransition';
+import MemoCacheComponentProvider from '../KeepAliveProvider';
 
 type Strategy = 'PRE' | 'LRU';
 
@@ -308,24 +309,23 @@ function KeepAlive(props: Props) {
                 {cacheNodes.map(item => {
                     const { name, ele, renderCount } = item;
                     return (
-                        <CacheComponent
-                            isCached={isCached}
-                            transition={transition}
-                            duration={duration}
-                            async={async}
-                            microAsync={microAsync}
-                            renderCount={renderCount}
-                            containerDivRef={containerDivRef}
-                            key={name}
-                            errorElement={errorElement}
-                            active={activeName === name}
-                            name={name}
-                            destroy={destroy}
-                            refresh={refresh}
-                            cacheDivClassName={cacheDivClassName}
-                        >
-                            {ele}
-                        </CacheComponent>
+                        <MemoCacheComponentProvider key={name + renderCount} active={name === activeName} destroy={destroy} refresh={refresh}>
+                            <CacheComponent
+                                isCached={isCached}
+                                transition={transition}
+                                duration={duration}
+                                async={async}
+                                microAsync={microAsync}
+                                renderCount={renderCount}
+                                containerDivRef={containerDivRef}
+                                errorElement={errorElement}
+                                active={activeName === name}
+                                name={name}
+                                cacheDivClassName={cacheDivClassName}
+                            >
+                                {ele}
+                            </CacheComponent>
+                        </MemoCacheComponentProvider>
                     );
                 })}
             </SuspenseElement>
