@@ -1,0 +1,1 @@
+import{r as f,an as c}from"./index-Cw3DFv_S.js";import{u as i}from"./useKeepAliveContext-pVtZ6Bwy.js";function a(e,t,r=!1,o){const{active:s}=i(),n=f.useRef(!1);o(()=>{if(!s)return;if(r&&!n.current){n.current=!0;return}const u=e();return()=>{c(u)&&u()}},[s,...t])}const m=(e,t,r=!1)=>{a(e,t,r,f.useEffect)};export{m as u};
