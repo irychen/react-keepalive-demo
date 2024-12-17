@@ -1,27 +1,22 @@
 import { useEffect, useState } from 'react';
-import { useEffectOnActive } from '../../../components/KeepAliveProvider';
+import useEffectOnActive from '../../../hooks/useEffectOnActive';
 
 function Tab2(props: any) {
     console.log('Tab2 rendered', props.name);
     const [count, setCount] = useState(0);
     const [inputText, setInputText] = useState('');
 
-    useEffectOnActive(
-        active => {
-            console.log('Tab2 active ---useOnActive---', active);
-            console.log('inputText', inputText);
-            return () => {
-                console.log('Tab2 cleanup', inputText, active);
-            };
-        },
-        true,
-        [inputText],
-    );
+    useEffectOnActive(() => {
+        console.log('Tab2 useEffectOnActive inputText', inputText);
+        return () => {
+            console.log('Tab2 useEffectOnActive cleanup', inputText);
+        };
+    }, [inputText]);
 
     useEffect(() => {
-        console.log('inputText raw', inputText);
+        console.log('Tab2 useEffect inputText raw', inputText);
         return () => {
-            console.log('Tab2 cleanup raw', inputText);
+            console.log('Tab2 useEffect cleanup raw', inputText);
         };
     }, [inputText]);
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useEffectOnActive, useKeepAliveContext } from '../../components/KeepAliveProvider';
+import useEffectOnActive from '../../hooks/useEffectOnActive';
+import useKeepAliveContext from '../../hooks/useKeepAliveContext';
 import { DatePicker, Select } from 'antd';
 
 function Counter() {
@@ -8,16 +9,12 @@ function Counter() {
     const { destroy } = useKeepAliveContext();
     const domRef = useRef<HTMLDivElement>(null);
 
-    useEffectOnActive(
-        active => {
-            console.log(`Counter active: ${active} Count: ${count}`);
-            return () => {
-                console.log(`Counter cleanup: ${active} Count: ${count}`);
-            };
-        },
-        true,
-        [count],
-    );
+    useEffectOnActive(() => {
+        console.log(`Counter active: Count: ${count}`);
+        return () => {
+            console.log(`Counter cleanup: Count: ${count}`);
+        };
+    }, [count]);
 
     useEffect(() => {
         // log height and width of the div

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import KeepAlive, { useKeepaliveRef } from '../../components/KeepAlive';
+import KeepAlive, { useKeepAliveRef } from '../../components/KeepAlive';
 import { Space } from 'antd';
 
 /**
@@ -9,17 +9,14 @@ import { Space } from 'antd';
 const tabs = [
     {
         name: 'Tab1',
-        cache: true,
         component: lazy(() => import('./Tab1')),
     },
     {
         name: 'Tab2',
-        cache: true,
         component: lazy(() => import('./Tab2')),
     },
     {
         name: 'Tab3',
-        cache: false,
         component: lazy(() => import('./Tab3')),
     },
 ];
@@ -31,7 +28,7 @@ function TabsPage() {
         return tabs.find(tab => tab.name === activeTab);
     }, [activeTab]);
 
-    const aliveRef = useKeepaliveRef();
+    const aliveRef = useKeepAliveRef();
 
     return (
         <div>
@@ -60,7 +57,7 @@ function TabsPage() {
                         <button
                             className={'button'}
                             onClick={() => {
-                                aliveRef.current?.cleanAllCache();
+                                aliveRef.current?.destroyAll();
                             }}
                         >
                             remove all cacheNodes
@@ -68,7 +65,7 @@ function TabsPage() {
                         <button
                             className={'button'}
                             onClick={() => {
-                                aliveRef.current?.cleanOtherCache();
+                                aliveRef.current?.destroyOther();
                             }}
                         >
                             remove other cacheNodes
@@ -76,7 +73,7 @@ function TabsPage() {
                         <button
                             className={'button'}
                             onClick={() => {
-                                console.log(aliveRef.current?.getCaches());
+                                console.log(aliveRef.current?.getCacheNodes());
                             }}
                         >
                             print cacheNodes
@@ -108,17 +105,8 @@ function TabsPage() {
                         display: 'flex',
                     }}
                 >
-                    <Suspense fallback={<div>Loading...</div>}>
-                        <KeepAlive
-                            onBeforeActive={name => {
-                                console.log('set style', name);
-                            }}
-                            aliveRef={aliveRef}
-                            max={20}
-                            strategy={'PRE'}
-                            activeName={activeTab}
-                            cache={page?.cache}
-                        >
+                    <Suspense>
+                        <KeepAlive aliveRef={aliveRef} max={20} exclude={['Tab3']} activeCacheKey={activeTab}>
                             {page && <page.component name={page.name} />}
                         </KeepAlive>
                     </Suspense>

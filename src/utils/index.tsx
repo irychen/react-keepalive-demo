@@ -10,28 +10,42 @@ export function isArr(value: any): value is Array<any> {
     return Array.isArray(value);
 }
 
-export function isFn(value: any): value is Function {
+export function isFn(value: any): value is (...args: any[]) => any {
     return typeof value === 'function';
 }
 
-export function delayAsync(seconds: number = 100): Promise<void> {
+export function domAttrSet(dom: HTMLDivElement) {
+    return {
+        set: (key: string, value: string) => {
+            dom.setAttribute(key, value);
+            return domAttrSet(dom);
+        },
+    };
+}
+
+export function delayAsync(milliseconds: number = 100): Promise<void> {
     let _timeID: null | number | NodeJS.Timeout;
-    return new Promise<void>((resolve, _reject) => {
+    return new Promise<void>(resolve => {
         _timeID = setTimeout(() => {
             resolve();
             if (!isNil(_timeID)) {
                 clearTimeout(_timeID);
             }
-        }, seconds);
+        }, milliseconds);
     });
 }
 
-let _lock = false;
-
-export function getLock() {
-    return _lock;
+export function isInclude(include: Array<string | RegExp> | string | RegExp | undefined, val: string) {
+    const includes = isArr(include) ? include : isNil(include) ? [] : [include];
+    return includes.some(include => {
+        if (isRegExp(include)) {
+            return include.test(val);
+        } else {
+            return val === include;
+        }
+    });
 }
 
-export function setLock(value: boolean) {
-    _lock = value;
+export function macroTask(fn: () => void) {
+    setTimeout(fn, 0);
 }

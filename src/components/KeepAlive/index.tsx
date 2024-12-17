@@ -1,334 +1,284 @@
 import {
     ComponentType,
     Fragment,
-    MutableRefObject,
+    ReactElement,
     ReactNode,
     RefObject,
     useCallback,
-    useEffect,
     useImperativeHandle,
     useLayoutEffect,
     useRef,
     useState,
 } from 'react';
+import { isArr, isFn, isInclude, isNil, isRegExp, macroTask } from '../../utils';
+import CacheComponentProvider from '../CacheComponentProvider';
 import CacheComponent from '../CacheComponent';
-import { isArr, isNil, isRegExp } from '../../utils';
-import { safeStartTransition } from '../../compat/startTransition';
-import MemoCacheComponentProvider from '../KeepAliveProvider';
+import safeStartTransition from '../../compat/safeStartTransition';
 
-type Strategy = 'PRE' | 'LRU';
+export type KeepAliveChildren = ReactNode | ReactElement | null | undefined | JSX.Element;
 
-interface Props {
-    children: ReactNode;
-    /**
-     * active name
-     */
-    activeName: string;
+export interface KeepAliveProps {
+    activeCacheKey: string;
+    children?: KeepAliveChildren;
     /**
      * max cache count default 10
      */
     max?: number;
-    /**
-     * cache: boolean default true
-     */
-    cache?: boolean;
-    /**
-     * maxRemoveStrategy: 'PRE' | 'LRU' default 'LRU'
-     *
-     * PRE: remove the first cacheNode
-     *
-     * LRU: remove the least recently used cacheNode
-     */
-    strategy?: Strategy;
-    /**
-     * aliveRef: KeepAliveRef
-     *
-     * aliveRef is a ref to get caches, remove cache by name, clean all cache, clean other cache except current
-     *
-     */
-    aliveRef?: RefObject<KeepAliveRef | undefined> | MutableRefObject<KeepAliveRef | undefined>;
-
     exclude?: Array<string | RegExp> | string | RegExp;
-
     include?: Array<string | RegExp> | string | RegExp;
-
-    /**
-     * suspenseElement: Suspense Wrapper Component
-     */
-    suspenseElement?: ComponentType<{
-        children: ReactNode;
-    }>;
-
-    /**
-     *  errorElement: for every cacheNode's ErrorBoundary
-     */
+    onBeforeActive?: (activeCacheKey: string) => void;
+    customContainerRef?: RefObject<HTMLDivElement>;
+    cacheNodeClassName?: string;
+    containerClassName?: string;
     errorElement?: ComponentType<{
         children: ReactNode;
     }>;
-
-    animationWrapper?: ComponentType<{
-        children: ReactNode;
-    }>;
-
     /**
-     * onBeforeActive: callback before active
-     * @param name
-     *
-     * you can do something before active
-     *
+     * transition default false
      */
-    onBeforeActive?: (name: string) => void;
-    /**
-     *  containerDivRef: root node to mount cacheNodes
-     */
-    containerDivRef?: MutableRefObject<HTMLDivElement>;
-    /**
-     *  cacheDivClassName: className set for cacheNodes
-     */
-    cacheDivClassName?: string;
-
-    /**
-     * async: whether to use async to render current cacheNode default false
-     */
-    async?: boolean;
-    /**
-     * microAsync: whether to use microAsync to render current cacheNode default true
-     */
-    microAsync?: boolean;
-
     transition?: boolean;
+    /**
+     * transition duration default 200
+     */
     duration?: number;
+    aliveRef?: RefObject<KeepAliveRef | undefined>;
+    /**
+     * max alive time for cache node (second)
+     * @default 0 (no limit)
+     */
+    maxAliveTime?: number | MaxAliveConfig[];
 }
 
-interface CacheNode {
-    name: string;
-    ele?: ReactNode;
+interface MaxAliveConfig {
+    match: string | RegExp;
+    expire: number;
+}
+
+export interface CacheNode {
+    cacheKey: string;
+    ele?: KeepAliveChildren;
     lastActiveTime: number;
     renderCount: number;
 }
 
-/**
- * RemoveStrategies is a strategy to remove cacheNodes
- *
- * PRE: remove the first cacheNode
- *
- * LRU: remove the least recently used cacheNode
- */
-const RemoveStrategies: Record<string, (nodes: CacheNode[]) => CacheNode[]> = {
-    PRE: (nodes: CacheNode[]) => {
-        nodes.shift();
-        return nodes;
-    },
-    LRU: (nodes: CacheNode[]) => {
-        const node = nodes.reduce((prev, cur) => {
-            return prev.lastActiveTime < cur.lastActiveTime ? prev : cur;
-        });
-        nodes.splice(nodes.indexOf(node), 1);
-        return nodes;
-    },
-};
-
-export type KeepAliveRef = {
-    getCaches: () => Array<CacheNode>;
-
+export interface KeepAliveAPI {
     /**
-     * remove cacheNode by name
-     * @param name cacheNode name to remove
-     * @returns
+     * Refreshes the component.
+     * @param {string} [cacheKey] - The cache key of the component. If not provided, the current cached component will be refreshed.
      */
-    removeCache: (name: string) => Promise<void>;
-
+    refresh: (cacheKey?: string) => void;
     /**
-     * clean all cacheNodes
+     * destroy the component
+     * @param {string} [cacheKey] - the cache key of the component, if not provided, current active cached component will be destroyed
      */
-    cleanAllCache: () => void;
-
+    destroy: (cacheKey?: string | string[]) => Promise<void>;
     /**
-     * clean other cacheNodes except current active cacheNode
+     * destroy all components
      */
-    cleanOtherCache: () => void;
-
+    destroyAll: () => Promise<void>;
     /**
-     * refresh cacheNode by name
-     * @param name cacheNode name to refresh if name is not provided, refresh current active cacheNode
+     * destroy other components except the provided cacheKey
+     * @param {string} [cacheKey] - The cache key of the component. If not provided, destroy all components except the current active cached component.
      */
-    refresh: (name?: string) => void;
-};
+    destroyOther: (cacheKey?: string) => Promise<void>;
+    /**
+     * get the cache nodes
+     */
+    getCacheNodes: () => Array<CacheNode>;
+}
 
-export function useKeepaliveRef() {
+export interface KeepAliveRef extends KeepAliveAPI {}
+
+export function useKeepAliveRef() {
     return useRef<KeepAliveRef>();
 }
 
-function KeepAlive(props: Props) {
+function KeepAlive(props: KeepAliveProps) {
     const {
-        aliveRef,
-        strategy = 'LRU',
-        activeName,
-        children,
+        activeCacheKey,
         max = 10,
-        errorElement,
-        suspenseElement: SuspenseElement = Fragment,
-        animationWrapper: AnimationWrapper = Fragment,
+        exclude,
+        include,
         onBeforeActive,
-        containerDivRef: containerDivRefFromProps,
-        cacheDivClassName,
-        async = false,
-        microAsync = true,
+        customContainerRef,
+        cacheNodeClassName = `cache-component`,
+        containerClassName = 'keep-alive-render',
+        errorElement,
         transition = false,
-        duration = 300,
+        duration = 200,
+        children,
+        aliveRef,
+        maxAliveTime = 0,
     } = props;
 
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const containerDivRef = containerDivRefFromProps || useRef<HTMLDivElement>(null);
+    const defaultContainerRef = useRef<HTMLDivElement>(null);
+    const containerDivRef = customContainerRef ?? defaultContainerRef;
     const [cacheNodes, setCacheNodes] = useState<Array<CacheNode>>([]);
 
     const isCached = useCallback(
-        (name: string) => {
-            const includes = isArr(props.include) ? props.include : props.include ? [props.include] : [];
-            const excludes = isArr(props.exclude) ? props.exclude : props.exclude ? [props.exclude] : [];
-            if (
-                includes.some(include => {
-                    if (isRegExp(include)) {
-                        return include.test(name);
-                    } else {
-                        return name === include;
-                    }
-                })
-            )
+        (cacheKey: string) => {
+            if (include) {
+                return isInclude(include, cacheKey);
+            } else {
+                if (exclude) {
+                    return !isInclude(exclude, cacheKey);
+                }
                 return true;
-
-            if (
-                excludes.some(exclude => {
-                    if (isRegExp(exclude)) {
-                        return exclude.test(name);
-                    } else {
-                        return name === exclude;
-                    }
-                })
-            )
-                return false;
-
-            return true;
+            }
         },
-        [props.exclude, props.include],
+        [exclude, include],
     );
 
     useLayoutEffect(() => {
-        if (isNil(activeName)) return;
+        if (isNil(activeCacheKey)) return;
         safeStartTransition(() => {
             setCacheNodes(prevCacheNodes => {
                 const lastActiveTime = Date.now();
-                const cacheNode = prevCacheNodes.find(item => item.name === activeName);
-
+                const cacheNode = prevCacheNodes.find(item => item.cacheKey === activeCacheKey);
                 if (cacheNode) {
                     return prevCacheNodes.map(item => {
-                        if (item.name === activeName) {
-                            onBeforeActive && onBeforeActive(activeName);
-                            return { name: activeName, lastActiveTime, ele: children, renderCount: item.renderCount };
+                        if (item.cacheKey === activeCacheKey) {
+                            let needUpdate = false;
+                            if (isFn(onBeforeActive)) onBeforeActive(activeCacheKey);
+                            if (maxAliveTime) {
+                                const prev = item.lastActiveTime;
+                                if (isArr(maxAliveTime)) {
+                                    const config = maxAliveTime.find(item => {
+                                        return isRegExp(item.match) ? item.match.test(activeCacheKey) : item.match === activeCacheKey;
+                                    });
+                                    if (config) {
+                                        needUpdate = config && prev + config.expire * 1000 < lastActiveTime;
+                                    }
+                                } else {
+                                    needUpdate = prev + maxAliveTime * 1000 < lastActiveTime;
+                                }
+                            }
+                            console.log('children', children);
+                            console.log('item', item.ele);
+                            console.log('isEqual', item.ele === children);
+
+                            return {
+                                ...item,
+                                // ele: children,
+                                lastActiveTime,
+                                renderCount: needUpdate ? item.renderCount + 1 : item.renderCount,
+                            };
                         }
                         return item;
                     });
                 } else {
-                    onBeforeActive && onBeforeActive(activeName);
-                    if (prevCacheNodes.length >= max) {
-                        const removeStrategyFunc = RemoveStrategies[strategy];
-                        if (removeStrategyFunc) {
-                            prevCacheNodes = removeStrategyFunc(prevCacheNodes);
-                        } else {
-                            throw new Error(`strategy ${strategy} is not supported`);
-                        }
+                    if (isFn(onBeforeActive)) onBeforeActive(activeCacheKey);
+                    if (prevCacheNodes.length > max) {
+                        const node = prevCacheNodes.reduce((prev, cur) => {
+                            return prev.lastActiveTime < cur.lastActiveTime ? prev : cur;
+                        });
+                        prevCacheNodes.splice(prevCacheNodes.indexOf(node), 1);
                     }
-                    return [...prevCacheNodes, { name: activeName, lastActiveTime, ele: children, renderCount: 0 }];
+                    return [...prevCacheNodes, { cacheKey: activeCacheKey, lastActiveTime, ele: children, renderCount: 0 }];
                 }
             });
         });
-    }, [children, activeName, setCacheNodes, max, strategy, props.exclude, props.include]);
-
-    const destroy = useCallback(
-        (name: string) => {
-            setCacheNodes(cacheNodes => {
-                return cacheNodes.filter(item => item.name !== name);
-            });
-        },
-        [setCacheNodes],
-    );
+    }, [activeCacheKey, children, max, maxAliveTime, onBeforeActive]);
 
     const refresh = useCallback(
-        (name?: string) => {
+        (cacheKey?: string) => {
             setCacheNodes(cacheNodes => {
-                const targetName = name || activeName;
+                const targetCacheKey = cacheKey || activeCacheKey;
                 return cacheNodes.map(item => {
-                    if (item.name === targetName) {
+                    if (item.cacheKey === targetCacheKey) {
                         return { ...item, renderCount: item.renderCount + 1 };
                     }
                     return item;
                 });
             });
         },
-        [setCacheNodes, activeName],
+        [setCacheNodes, activeCacheKey],
     );
 
-    useImperativeHandle(
-        aliveRef,
-        () => ({
-            getCaches: () => cacheNodes,
-            removeCache: async (name: string) => {
-                return new Promise(resolve => {
-                    setTimeout(() => {
-                        setCacheNodes(cacheNodes => {
-                            return [...cacheNodes.filter(item => item.name !== name)];
-                        });
-                        resolve();
-                    }, 0);
+    const destroy = useCallback(
+        (cacheKey?: string | string[]) => {
+            const targetCacheKey = cacheKey || activeCacheKey;
+            const cacheKeys = isArr(targetCacheKey) ? targetCacheKey : [targetCacheKey];
+            return new Promise<void>(resolve => {
+                macroTask(() => {
+                    setCacheNodes(cacheNodes => {
+                        return [...cacheNodes.filter(item => !cacheKeys.includes(item.cacheKey))];
+                    });
+                    resolve();
                 });
-            },
-            cleanAllCache: () => {
+            });
+        },
+        [setCacheNodes, activeCacheKey],
+    );
+
+    const destroyAll = useCallback(() => {
+        return new Promise<void>(resolve => {
+            macroTask(() => {
                 setCacheNodes([]);
-            },
-            cleanOtherCache: () => {
-                setCacheNodes(cacheNodes => {
-                    return [...cacheNodes.filter(item => item.name === activeName)];
-                });
-            },
+                resolve();
+            });
+        });
+    }, [setCacheNodes]);
 
-            refresh,
-        }),
-        [cacheNodes, setCacheNodes, activeName],
+    const destroyOther = useCallback(
+        (cacheKey?: string) => {
+            const targetCacheKey = cacheKey || activeCacheKey;
+            return new Promise<void>(resolve => {
+                macroTask(() => {
+                    setCacheNodes(cacheNodes => {
+                        return [...cacheNodes.filter(item => item.cacheKey === targetCacheKey)];
+                    });
+                    resolve();
+                });
+            });
+        },
+        [activeCacheKey, setCacheNodes],
     );
 
-    useEffect(() => {
-        console.log('cacheNodes', cacheNodes);
+    const getCacheNodes = useCallback(() => {
+        return cacheNodes;
     }, [cacheNodes]);
+
+    useImperativeHandle(aliveRef, () => ({
+        refresh,
+        destroy,
+        destroyAll,
+        destroyOther,
+        getCacheNodes,
+    }));
 
     return (
         <Fragment>
-            <AnimationWrapper>
-                <div ref={containerDivRef} className={'keep-alive-render'} style={{ height: '100%' }}></div>
-            </AnimationWrapper>
-            <SuspenseElement>
-                {cacheNodes.map(item => {
-                    const { name, ele, renderCount } = item;
-                    return (
-                        <MemoCacheComponentProvider key={name + renderCount} active={name === activeName} destroy={destroy} refresh={refresh}>
-                            <CacheComponent
-                                isCached={isCached}
-                                transition={transition}
-                                duration={duration}
-                                async={async}
-                                microAsync={microAsync}
-                                renderCount={renderCount}
-                                containerDivRef={containerDivRef}
-                                errorElement={errorElement}
-                                active={activeName === name}
-                                name={name}
-                                cacheDivClassName={cacheDivClassName}
-                            >
-                                {ele}
-                            </CacheComponent>
-                        </MemoCacheComponentProvider>
-                    );
-                })}
-            </SuspenseElement>
+            <div ref={containerDivRef} className={containerClassName} style={{ height: '100%' }}></div>
+            {cacheNodes.map(item => {
+                const { cacheKey, ele, renderCount } = item;
+                return (
+                    <CacheComponentProvider
+                        key={`${cacheKey}-${renderCount}`}
+                        active={activeCacheKey === cacheKey}
+                        refresh={refresh}
+                        destroy={destroy}
+                        destroyAll={destroyAll}
+                        destroyOther={destroyOther}
+                        getCacheNodes={getCacheNodes}
+                    >
+                        <CacheComponent
+                            destroy={destroy}
+                            isCached={isCached}
+                            transition={transition}
+                            duration={duration}
+                            renderCount={renderCount}
+                            containerDivRef={containerDivRef}
+                            errorElement={errorElement}
+                            active={activeCacheKey === cacheKey}
+                            cacheNodeClassName={cacheNodeClassName}
+                            cacheKey={cacheKey}
+                        >
+                            {ele}
+                        </CacheComponent>
+                    </CacheComponentProvider>
+                );
+            })}
         </Fragment>
     );
 }

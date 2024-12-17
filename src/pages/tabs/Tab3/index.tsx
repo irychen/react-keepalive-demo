@@ -1,4 +1,4 @@
-import { useKeepAliveContext } from '../../../components/KeepAliveProvider';
+import useKeepAliveContext from '../../../hooks/useKeepAliveContext';
 import { useEffect, useState } from 'react';
 
 function Tab3(props: any) {

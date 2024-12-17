@@ -1,11 +1,11 @@
 import { Link, useLocation, useOutlet } from 'react-router-dom';
 import { Suspense, useMemo } from 'react';
-import KeepAlive, { useKeepaliveRef } from '../../components/KeepAlive';
+import KeepAlive, { useKeepAliveRef } from '../../components/KeepAlive';
 
 function BasicLayoutWithCache() {
     const outlet = useOutlet();
     const location = useLocation();
-    const aliveRef = useKeepaliveRef();
+    const aliveRef = useKeepAliveRef();
 
     function refresh() {
         aliveRef.current?.refresh();
@@ -61,15 +61,7 @@ function BasicLayoutWithCache() {
             </button>
             <div>
                 <Suspense fallback={<div>Loading...</div>}>
-                    <KeepAlive
-                        duration={280}
-                        transition
-                        aliveRef={aliveRef}
-                        activeName={cacheKey}
-                        exclude={[/\/exclude-counter/]}
-                        max={2}
-                        strategy={'LRU'}
-                    >
+                    <KeepAlive duration={280} transition aliveRef={aliveRef} activeCacheKey={cacheKey} exclude={[/\/exclude-counter/]} max={2}>
                         {outlet}
                     </KeepAlive>
                 </Suspense>
